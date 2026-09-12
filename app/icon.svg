@@ -1,0 +1,39 @@
+<svg
+  height="32"
+  viewBox="0 0 32 32"
+  width="32"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <style>
+  .tile {
+    fill: #151515;
+  }
+  .ink-line {
+    fill: none;
+    stroke: #fafafa;
+  }
+  .ink-dot {
+    fill: #fafafa;
+  }
+  @media (prefers-color-scheme: dark) {
+    .tile {
+      fill: #ebebeb;
+    }
+    .ink-line {
+      stroke: #151515;
+    }
+    .ink-dot {
+      fill: #151515;
+    }
+  }
+  </style>
+  <rect class="tile" height="32" rx="8" width="32" />
+  <path
+    class="ink-line"
+    d="M8.6 24.2 16 7.8 23.4 24.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="3.4"
+  />
+  <circle class="ink-dot" cx="16" cy="19.6" r="1.8" />
+</svg>

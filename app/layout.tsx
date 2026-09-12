@@ -6,10 +6,29 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 
+const DESCRIPTION = "Ask Able anything. A fast AI assistant for students.";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+
 export const metadata: Metadata = {
-  description: "Next.js chatbot template using the AI SDK.",
-  metadataBase: new URL("https://chat.vercel.ai"),
-  title: "Next.js Chatbot Template",
+  applicationName: "Able",
+  description: DESCRIPTION,
+  // Falls back to the deployment URL when NEXT_PUBLIC_APP_URL is unset.
+  metadataBase: APP_URL && URL.canParse(APP_URL) ? new URL(APP_URL) : undefined,
+  openGraph: {
+    description: DESCRIPTION,
+    siteName: "Able",
+    title: "Able",
+    type: "website",
+  },
+  title: {
+    default: "Able",
+    template: "%s · Able",
+  },
+  twitter: {
+    card: "summary_large_image",
+    description: DESCRIPTION,
+    title: "Able",
+  },
 };
 
 export const viewport = {
@@ -28,8 +47,9 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
 });
 
-const LIGHT_THEME_COLOR = "hsl(0 0% 100%)";
-const DARK_THEME_COLOR = "hsl(240deg 10% 3.92%)";
+// Matches --background in app/globals.css for each theme.
+const LIGHT_THEME_COLOR = "#fafafa";
+const DARK_THEME_COLOR = "#151515";
 const THEME_COLOR_SCRIPT = `\
 (function() {
   var html = document.documentElement;
