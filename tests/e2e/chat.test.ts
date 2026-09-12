@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../fixtures";
 
 test.describe("Chat Page", () => {
   test("home page loads with input field", async ({ page }) => {
