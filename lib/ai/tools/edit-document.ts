@@ -1,6 +1,7 @@
 import { tool, type UIMessageStreamWriter } from "ai";
 import type { Session } from "next-auth";
 import { z } from "zod";
+import { isArtifactKind } from "@/lib/artifacts/server";
 import { getDocumentById, saveDocument } from "@/lib/db/queries";
 import type { ChatMessage } from "@/lib/types";
 
@@ -26,6 +27,10 @@ export const editDocument = ({ session, dataStream }: EditDocumentProps) =>
 
       if (!document.content) {
         return { error: "Document has no content" };
+      }
+
+      if (!isArtifactKind(document.kind)) {
+        return { error: "This artifact can no longer be edited" };
       }
 
       if (!document.content.includes(old_string)) {

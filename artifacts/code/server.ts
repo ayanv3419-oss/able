@@ -1,6 +1,6 @@
 import { streamText } from "ai";
 import { codePrompt, updateDocumentPrompt } from "@/lib/ai/prompts";
-import { getLanguageModel } from "@/lib/ai/providers";
+import { getChatModel } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
 
 function stripFences(code: string): string {
@@ -12,12 +12,12 @@ function stripFences(code: string): string {
 
 export const codeDocumentHandler = createDocumentHandler<"code">({
   kind: "code",
-  onCreateDocument: async ({ title, dataStream, modelId }) => {
+  onCreateDocument: async ({ title, dataStream }) => {
     let draftContent = "";
 
     const { stream } = streamText({
       instructions: `${codePrompt}\n\nOutput ONLY the code. No explanations, no markdown fences, no wrapping.`,
-      model: getLanguageModel(modelId),
+      model: getChatModel(),
       prompt: title,
     });
 
@@ -34,12 +34,12 @@ export const codeDocumentHandler = createDocumentHandler<"code">({
 
     return stripFences(draftContent);
   },
-  onUpdateDocument: async ({ document, description, dataStream, modelId }) => {
+  onUpdateDocument: async ({ document, description, dataStream }) => {
     let draftContent = "";
 
     const { stream } = streamText({
       instructions: `${updateDocumentPrompt(document.content, "code")}\n\nOutput ONLY the complete updated code. No explanations, no markdown fences, no wrapping.`,
-      model: getLanguageModel(modelId),
+      model: getChatModel(),
       prompt: description,
     });
 

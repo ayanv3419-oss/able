@@ -2,7 +2,6 @@
 
 import {
   BombIcon,
-  ListIcon,
   PaletteIcon,
   PenLineIcon,
   PenSquareIcon,
@@ -39,12 +38,7 @@ export const slashCommands: SlashCommand[] = [
     icon: <PenLineIcon className="size-3.5" />,
     name: "rename",
   },
-  {
-    action: "model",
-    description: "Change the AI model",
-    icon: <ListIcon className="size-3.5" />,
-    name: "model",
-  },
+
   {
     action: "theme",
     description: "Toggle dark/light mode",

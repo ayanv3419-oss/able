@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import type { ArtifactKind } from "@/components/chat/artifact";
+import { artifactKinds } from "@/lib/artifacts/server";
 import {
   deleteDocumentsByIdAfterTimestamp,
   getDocumentsById,
@@ -12,7 +13,7 @@ import { ChatbotError } from "@/lib/errors";
 const documentSchema = z.object({
   content: z.string(),
   isManualEdit: z.boolean().optional(),
-  kind: z.enum(["text", "code", "image", "sheet"]),
+  kind: z.enum(artifactKinds),
   title: z.string(),
 });
 

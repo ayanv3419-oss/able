@@ -21,7 +21,6 @@ export type CreateDocumentCallbackProps = {
   title: string;
   dataStream: UIMessageStreamWriter<ChatMessage>;
   session: Session;
-  modelId: string;
 };
 
 export type UpdateDocumentCallbackProps = {
@@ -29,7 +28,6 @@ export type UpdateDocumentCallbackProps = {
   description: string;
   dataStream: UIMessageStreamWriter<ChatMessage>;
   session: Session;
-  modelId: string;
 };
 
 export type DocumentHandler<T = ArtifactKind> = {
@@ -49,7 +47,6 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
       const draftContent = await config.onCreateDocument({
         dataStream: args.dataStream,
         id: args.id,
-        modelId: args.modelId,
         session: args.session,
         title: args.title,
       });
@@ -69,7 +66,6 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
         dataStream: args.dataStream,
         description: args.description,
         document: args.document,
-        modelId: args.modelId,
         session: args.session,
       });
 
@@ -93,3 +89,12 @@ export const documentHandlersByArtifactKind: DocumentHandler[] = [
 ];
 
 export const artifactKinds = ["text", "code", "sheet"] as const;
+
+/**
+ * Stored documents can only hold a kind we still support. The `Document.kind`
+ * column is typed more widely than that while it keeps the template's removed
+ * `image` kind, so reads from the database are narrowed through this guard.
+ */
+export function isArtifactKind(kind: string): kind is ArtifactKind {
+  return (artifactKinds as readonly string[]).includes(kind);
+}

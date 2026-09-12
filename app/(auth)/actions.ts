@@ -1,84 +1,27 @@
 "use server";
 
-import { z } from "zod";
-
-import { createUser, getUser } from "@/lib/db/queries";
-
 import { signIn } from "./auth";
 
-const authFormSchema = z.object({
-  email: z.email(),
-  password: z.string().min(6),
-});
+/**
+ * Keeps sign-in landing on a page of this app, so a crafted callbackUrl
+ * cannot send a student somewhere else once Google sends them back.
+ */
+function safeCallbackUrl(value: FormDataEntryValue | null): string {
+  const target = typeof value === "string" ? value : "";
 
-export type LoginActionState = {
-  status: "idle" | "in_progress" | "success" | "failed" | "invalid_data";
-};
-
-export const login = async (
-  _: LoginActionState,
-  formData: FormData
-): Promise<LoginActionState> => {
-  try {
-    const validatedData = authFormSchema.parse({
-      email: formData.get("email"),
-      password: formData.get("password"),
-    });
-
-    await signIn("credentials", {
-      email: validatedData.email,
-      password: validatedData.password,
-      redirect: false,
-    });
-
-    return { status: "success" };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { status: "invalid_data" };
-    }
-
-    return { status: "failed" };
+  if (
+    !target.startsWith("/") ||
+    target.startsWith("//") ||
+    target.startsWith("/\\")
+  ) {
+    return "/";
   }
-};
 
-export type RegisterActionState = {
-  status:
-    | "idle"
-    | "in_progress"
-    | "success"
-    | "failed"
-    | "user_exists"
-    | "invalid_data";
-};
+  return target;
+}
 
-export const register = async (
-  _: RegisterActionState,
-  formData: FormData
-): Promise<RegisterActionState> => {
-  try {
-    const validatedData = authFormSchema.parse({
-      email: formData.get("email"),
-      password: formData.get("password"),
-    });
-
-    const [user] = await getUser(validatedData.email);
-
-    if (user) {
-      return { status: "user_exists" } as RegisterActionState;
-    }
-    await createUser(validatedData.email, validatedData.password);
-    await signIn("credentials", {
-      email: validatedData.email,
-      password: validatedData.password,
-      redirect: false,
-    });
-
-    return { status: "success" };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { status: "invalid_data" };
-    }
-
-    return { status: "failed" };
-  }
-};
+export async function signInWithGoogle(formData: FormData) {
+  await signIn("google", {
+    redirectTo: safeCallbackUrl(formData.get("callbackUrl")),
+  });
+}

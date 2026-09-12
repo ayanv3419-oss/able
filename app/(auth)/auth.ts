@@ -1,12 +1,12 @@
-import { compare } from "bcrypt-ts";
 import NextAuth, { type DefaultSession } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
-import { DUMMY_PASSWORD } from "@/lib/constants";
-import { createGuestUser, getUser } from "@/lib/db/queries";
+import { z } from "zod";
+import { isProductionEnvironment, isTestEnvironment } from "@/lib/constants";
+import { getOrCreateUserByEmail } from "@/lib/db/queries";
 import { authConfig } from "./auth.config";
 
-export type UserType = "guest" | "regular";
+export type UserType = "regular";
 
 declare module "next-auth" {
   interface Session extends DefaultSession {
@@ -14,12 +14,6 @@ declare module "next-auth" {
       id: string;
       type: UserType;
     } & DefaultSession["user"];
-  }
-
-  interface User {
-    email?: string | null;
-    id?: string;
-    type: UserType;
   }
 }
 
@@ -30,6 +24,29 @@ declare module "next-auth/jwt" {
   }
 }
 
+const testLoginSchema = z.object({ email: z.email() });
+
+/**
+ * Signs in whichever email an e2e test asks for, so tests never call Google.
+ * It is only registered for test runs and never in a production build.
+ */
+const testLogin = Credentials({
+  authorize(credentials) {
+    const parsed = testLoginSchema.safeParse(credentials);
+
+    if (!parsed.success) {
+      return null;
+    }
+
+    return { email: parsed.data.email };
+  },
+  credentials: { email: { label: "Email", type: "email" } },
+  id: "test-login",
+  name: "Test login",
+});
+
+const isTestLoginEnabled = isTestEnvironment && !isProductionEnvironment;
+
 export const {
   handlers: { GET, POST },
   auth,
@@ -38,10 +55,18 @@ export const {
 } = NextAuth({
   ...authConfig,
   callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.id = user.id as string;
-        token.type = user.type;
+    async jwt({ token, user }) {
+      // `user` is only set while signing in, so this runs once per sign-in.
+      if (user?.email) {
+        const student = await getOrCreateUserByEmail({
+          email: user.email,
+          image: user.image,
+          name: user.name,
+        });
+
+        token.email = student.email;
+        token.id = student.id;
+        token.type = "regular";
       }
 
       return token;
@@ -54,46 +79,21 @@ export const {
 
       return session;
     },
+    signIn({ account, profile, user }) {
+      if (!user.email) {
+        return false;
+      }
+
+      // Students are keyed by email, so only accept one Google has verified.
+      if (account?.provider === "google") {
+        return profile?.email_verified === true;
+      }
+
+      return true;
+    },
   },
   providers: [
-    Credentials({
-      async authorize(credentials) {
-        const email = String(credentials.email ?? "");
-        const password = String(credentials.password ?? "");
-        const users = await getUser(email);
-
-        if (users.length === 0) {
-          await compare(password, DUMMY_PASSWORD);
-          return null;
-        }
-
-        const [user] = users;
-
-        if (!user.password) {
-          await compare(password, DUMMY_PASSWORD);
-          return null;
-        }
-
-        const passwordsMatch = await compare(password, user.password);
-
-        if (!passwordsMatch) {
-          return null;
-        }
-
-        return { ...user, type: "regular" };
-      },
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-    }),
-    Credentials({
-      async authorize() {
-        const [guestUser] = await createGuestUser();
-        return { ...guestUser, type: "guest" };
-      },
-      credentials: {},
-      id: "guest",
-    }),
+    ...authConfig.providers,
+    ...(isTestLoginEnabled ? [testLogin] : []),
   ],
 });

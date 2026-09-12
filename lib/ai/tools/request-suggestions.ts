@@ -1,22 +1,21 @@
 import { Output, streamText, tool, type UIMessageStreamWriter } from "ai";
 import type { Session } from "next-auth";
 import { z } from "zod";
+import { isArtifactKind } from "@/lib/artifacts/server";
 import { getDocumentById, saveSuggestions } from "@/lib/db/queries";
 import type { Suggestion } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
-import { getLanguageModel } from "../providers";
+import { getChatModel } from "../providers";
 
 type RequestSuggestionsProps = {
   session: Session;
   dataStream: UIMessageStreamWriter<ChatMessage>;
-  modelId: string;
 };
 
 export const requestSuggestions = ({
   session,
   dataStream,
-  modelId,
 }: RequestSuggestionsProps) =>
   tool({
     description:
@@ -34,6 +33,10 @@ export const requestSuggestions = ({
         return { error: "Forbidden" };
       }
 
+      if (!isArtifactKind(document.kind)) {
+        return { error: "Suggestions are not supported for this artifact" };
+      }
+
       const suggestions: Omit<
         Suggestion,
         "userId" | "createdAt" | "documentCreatedAt"
@@ -42,7 +45,7 @@ export const requestSuggestions = ({
       const { partialOutputStream } = streamText({
         instructions:
           "You are a writing assistant. Given a piece of writing, offer up to 5 suggestions to improve it. Each suggestion must contain full sentences, not just individual words. Describe what changed and why.",
-        model: getLanguageModel(modelId),
+        model: getChatModel(),
         output: Output.array({
           element: z.object({
             description: z

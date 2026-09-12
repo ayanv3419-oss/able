@@ -65,16 +65,10 @@ About the origin of user's request:
 
 export const systemPrompt = ({
   requestHints,
-  supportsTools,
 }: {
   requestHints: RequestHints;
-  supportsTools: boolean;
 }) => {
   const requestPrompt = getRequestPromptFromHints(requestHints);
-
-  if (!supportsTools) {
-    return `${regularPrompt}\n\n${requestPrompt}`;
-  }
 
   return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}`;
 };
@@ -123,7 +117,7 @@ export const titlePrompt = `Generate a short chat title (2-5 words) summarizing 
 Output ONLY the title text. No prefixes, no formatting.
 
 Examples:
-- "what's the weather in nyc" → Weather in NYC
+- "explain photosynthesis simply" → Photosynthesis Basics
 - "help me write an essay about space" → Space Essay Help
 - "hi" → New Conversation
 - "debug my python code" → Python Debugging

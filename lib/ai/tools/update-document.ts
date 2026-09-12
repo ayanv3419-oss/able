@@ -8,14 +8,9 @@ import type { ChatMessage } from "@/lib/types";
 type UpdateDocumentProps = {
   session: Session;
   dataStream: UIMessageStreamWriter<ChatMessage>;
-  modelId: string;
 };
 
-export const updateDocument = ({
-  session,
-  dataStream,
-  modelId,
-}: UpdateDocumentProps) =>
+export const updateDocument = ({ session, dataStream }: UpdateDocumentProps) =>
   tool({
     description:
       "Full rewrite of an existing artifact. Only use for major changes where most content needs replacing. Prefer editDocument for targeted changes.",
@@ -51,7 +46,6 @@ export const updateDocument = ({
         dataStream,
         description,
         document,
-        modelId,
         session,
       });
 
@@ -63,7 +57,7 @@ export const updateDocument = ({
             ? "The script has been updated successfully."
             : "The document has been updated successfully.",
         id,
-        kind: document.kind,
+        kind: documentHandler.kind,
         title: document.title,
       };
     },
