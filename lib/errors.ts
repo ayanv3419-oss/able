@@ -16,7 +16,11 @@ export type Surface =
   | "vote"
   | "document"
   | "suggestions"
-  | "activate_gateway";
+  | "activate_gateway"
+  | "payment"
+  | "refund"
+  | "project"
+  | "plan";
 
 export type ErrorCode = `${ErrorType}:${Surface}`;
 
@@ -30,6 +34,10 @@ export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
   database: "log",
   document: "response",
   history: "response",
+  payment: "response",
+  plan: "response",
+  project: "response",
+  refund: "response",
   stream: "response",
   suggestions: "response",
   vote: "response",
@@ -115,6 +123,26 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
       return "You need to sign in to view this document. Please sign in and try again.";
     case "bad_request:document":
       return "The request to create or update the document was invalid. Please check your input and try again.";
+
+    case "bad_request:payment":
+      return "That UPI reference number has already been submitted. Check the number and try again.";
+    case "forbidden:payment":
+      return "You already have a payment waiting for approval. Please wait for it to be reviewed.";
+    case "not_found:payment":
+      return "That payment was not found.";
+
+    case "not_found:refund":
+      return "That refund request was not found.";
+    case "forbidden:refund":
+      return "This payment cannot be refunded. A refund can be requested once per payment, within 7 days of approval.";
+
+    case "not_found:project":
+      return "That project was not found.";
+    case "forbidden:project":
+      return "You have reached the project folder limit for your plan. Upgrade to add more folders.";
+
+    case "forbidden:plan":
+      return "You need an active plan to do this. Choose a plan to continue.";
 
     default:
       return "Something went wrong. Please try again later.";
