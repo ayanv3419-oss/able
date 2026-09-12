@@ -1,6 +1,7 @@
 import { Output, streamText, tool, type UIMessageStreamWriter } from "ai";
 import type { Session } from "next-auth";
 import { z } from "zod";
+import { isArtifactKind } from "@/lib/artifacts/server";
 import { getDocumentById, saveSuggestions } from "@/lib/db/queries";
 import type { Suggestion } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
@@ -32,6 +33,10 @@ export const requestSuggestions = ({
 
       if (document.userId !== session.user?.id) {
         return { error: "Forbidden" };
+      }
+
+      if (!isArtifactKind(document.kind)) {
+        return { error: "Suggestions are not supported for this artifact" };
       }
 
       const suggestions: Omit<

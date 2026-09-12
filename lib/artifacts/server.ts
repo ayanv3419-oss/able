@@ -93,3 +93,12 @@ export const documentHandlersByArtifactKind: DocumentHandler[] = [
 ];
 
 export const artifactKinds = ["text", "code", "sheet"] as const;
+
+/**
+ * Stored documents can only hold a kind we still support. The `Document.kind`
+ * column is typed more widely than that while it keeps the template's removed
+ * `image` kind, so reads from the database are narrowed through this guard.
+ */
+export function isArtifactKind(kind: string): kind is ArtifactKind {
+  return (artifactKinds as readonly string[]).includes(kind);
+}

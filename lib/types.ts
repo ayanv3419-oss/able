@@ -4,7 +4,7 @@ import type { ArtifactKind } from "@/components/chat/artifact";
 import type { createDocument } from "./ai/tools/create-document";
 import type { requestSuggestions } from "./ai/tools/request-suggestions";
 import type { updateDocument } from "./ai/tools/update-document";
-import type { Suggestion } from "./db/schema";
+import type { Document, Suggestion } from "./db/schema";
 
 export const messageMetadataSchema = z.object({
   createdAt: z.string(),
@@ -24,6 +24,13 @@ export type ChatTools = {
   requestSuggestions: requestSuggestionsTool;
 };
 
+/**
+ * A document row as this app writes it. `Document.kind` is typed more widely
+ * than the kinds we support while it keeps the template's removed `image`
+ * kind.
+ */
+export type StoredDocument = Omit<Document, "kind"> & { kind: ArtifactKind };
+
 export type WaitingStatusData = {
   phase: "waiting" | "still-waiting" | "health" | "thinking";
   message: string;
@@ -33,7 +40,7 @@ export type WaitingStatusData = {
 
 export type CustomUIDataTypes = {
   textDelta: string;
-  imageDelta: string;
+
   sheetDelta: string;
   codeDelta: string;
   suggestion: Suggestion;

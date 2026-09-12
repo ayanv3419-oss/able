@@ -63,7 +63,7 @@ export const updateDocument = ({
             ? "The script has been updated successfully."
             : "The document has been updated successfully.",
         id,
-        kind: document.kind,
+        kind: documentHandler.kind,
         title: document.title,
       };
     },
