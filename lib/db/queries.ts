@@ -11,11 +11,10 @@ import {
   lt,
   type SQL,
 } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import type { ArtifactKind } from "@/components/chat/artifact";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { ChatbotError } from "../errors";
+import { db } from "./client";
 import {
   type Chat,
   chat,
@@ -29,9 +28,6 @@ import {
   user,
   vote,
 } from "./schema";
-
-const client = postgres(process.env.POSTGRES_URL ?? "");
-const db = drizzle(client);
 
 /**
  * Finds the student behind an email address and creates the row on their first
@@ -60,6 +56,9 @@ export async function getOrCreateUserByEmail({
       return existingUser;
     }
 
+    // Two simultaneous first sign-ins can both pass the select above before
+    // either inserts. The lower(email) unique index turns the second insert
+    // into a no-op instead of a duplicate row; re-select to return it.
     const [createdUser] = await db
       .insert(user)
       .values({
@@ -67,9 +66,24 @@ export async function getOrCreateUserByEmail({
         image: image ?? null,
         name: name ?? null,
       })
+      .onConflictDoNothing()
       .returning();
 
-    return createdUser;
+    if (createdUser) {
+      return createdUser;
+    }
+
+    const [wonByOtherRequest] = await db
+      .select()
+      .from(user)
+      .where(eq(user.email, normalizedEmail))
+      .limit(1);
+
+    if (wonByOtherRequest) {
+      return wonByOtherRequest;
+    }
+
+    throw new Error("User insert raced and the row could not be found");
   } catch (error) {
     throw new ChatbotError("bad_request:database", { cause: error });
   }

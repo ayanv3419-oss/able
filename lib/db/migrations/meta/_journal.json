@@ -15,6 +15,13 @@
       "when": 1789213148445,
       "tag": "0001_able_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789215411594,
+      "tag": "0002_lower_email_unique",
+      "breakpoints": true
     }
   ]
 }

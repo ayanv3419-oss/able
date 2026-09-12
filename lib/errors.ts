@@ -16,7 +16,6 @@ export type Surface =
   | "vote"
   | "document"
   | "suggestions"
-  | "activate_gateway"
   | "payment"
   | "refund"
   | "project"
@@ -27,7 +26,6 @@ export type ErrorCode = `${ErrorType}:${Surface}`;
 export type ErrorVisibility = "response" | "log" | "none";
 
 export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
-  activate_gateway: "response",
   api: "response",
   auth: "response",
   chat: "response",
@@ -95,9 +93,6 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
   switch (errorCode) {
     case "bad_request:api":
       return "The request couldn't be processed. Please check your input and try again.";
-
-    case "bad_request:activate_gateway":
-      return "AI Gateway requires a valid credit card on file to service requests. Please visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card to add a card and unlock your free credits.";
 
     case "unauthorized:auth":
       return "You need to sign in before continuing.";

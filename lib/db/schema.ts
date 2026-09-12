@@ -1,4 +1,4 @@
-import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import { type InferInsertModel, type InferSelectModel, sql } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
@@ -10,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -42,17 +43,25 @@ export const usageKindEnum = pgEnum("usage_kind", [
   "title",
 ]);
 
-export const user = pgTable("User", {
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  email: varchar("email", { length: 255 }).notNull(),
-  emailVerified: boolean("emailVerified").notNull().default(false),
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  image: text("image"),
-  isAnonymous: boolean("isAnonymous").notNull().default(false),
-  name: text("name"),
-  password: varchar("password", { length: 64 }),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
-});
+export const user = pgTable(
+  "User",
+  {
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    email: varchar("email", { length: 255 }).notNull(),
+    emailVerified: boolean("emailVerified").notNull().default(false),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    image: text("image"),
+    isAnonymous: boolean("isAnonymous").notNull().default(false),
+    name: text("name"),
+    password: varchar("password", { length: 64 }),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    lowerEmailUnique: uniqueIndex("User_lower_email_unique").on(
+      sql`lower(${table.email})`
+    ),
+  })
+);
 
 export type User = InferSelectModel<typeof user>;
 
@@ -123,7 +132,7 @@ export const document = pgTable(
     content: text("content"),
     createdAt: timestamp("createdAt").notNull(),
     id: uuid("id").notNull().defaultRandom(),
-    kind: varchar("text", { enum: ["text", "code", "image", "sheet"] })
+    kind: varchar("text", { enum: ["text", "code", "sheet"] })
       .notNull()
       .default("text"),
     title: text("title").notNull(),

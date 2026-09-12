@@ -68,9 +68,6 @@ importers:
       ai:
         specifier: 7.0.15
         version: 7.0.15(zod@4.4.3)
-      bcrypt-ts:
-        specifier: ^8.0.1
-        version: 8.0.1
       botid:
         specifier: ^1.5.11
         version: 1.5.11(next@16.2.10(@opentelemetry/api@1.9.1)(@playwright/test@1.61.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)
@@ -2934,10 +2931,6 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  bcrypt-ts@8.0.1:
-    resolution: {integrity: sha512-ILrO7U7YieyG+71KVIVVuPCmjN8N9DY3gYs4OiEoJvW8A5HOe4eerRhLD0Rgo2CAyANRKssFGXmLF74zJz094g==}
-    engines: {node: '>=20'}
-
   bluebird@3.4.7:
     resolution: {integrity: sha512-iD3898SR7sWVRHbiQv+sHUtHnMvC1o3nW5rAcqnq3uOn07DSAppZYUkIGslDz6gXC7HfunPe7YVBgoEJASPcHA==}
 
@@ -4509,9 +4502,6 @@ packages:
 
   pg-protocol@1.16.0:
     resolution: {integrity: sha512-sILXutLVjCLjcDuOmvhX5e2Z4cS5qG/6Bu3VkpFwdf/633ElGLpEh9bgmuI5I4sqKqkifQiGyiCcx1HdtrK7tg==}
-
-  pg-protocol@1.8.0:
-    resolution: {integrity: sha512-jvuYlEkL03NRvOoyoRktBK7+qU5kOvlAwvmrH8sr3wbLrOdVWsRxQfz8mMy9sZFsqJ1hEWNfdWKI4SAmoL+j7g==}
 
   pg-types@2.2.0:
     resolution: {integrity: sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==}
@@ -7546,7 +7536,7 @@ snapshots:
   '@types/pg@8.11.6':
     dependencies:
       '@types/node': 24.13.2
-      pg-protocol: 1.8.0
+      pg-protocol: 1.16.0
       pg-types: 4.0.2
     optional: true
 
@@ -7765,8 +7755,6 @@ snapshots:
   base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.10.8: {}
-
-  bcrypt-ts@8.0.1: {}
 
   bluebird@3.4.7: {}
 
@@ -9563,9 +9551,6 @@ snapshots:
       pg: 8.23.0
 
   pg-protocol@1.16.0: {}
-
-  pg-protocol@1.8.0:
-    optional: true
 
   pg-types@2.2.0:
     dependencies:
