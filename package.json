@@ -16,7 +16,10 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
-    "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
+    "db:local": "tsx scripts/local-db.ts",
+    "db:create": "tsx scripts/db-create.ts",
+    "test": "export PLAYWRIGHT=True && pnpm exec playwright test",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/groq": "^4.0.41",
@@ -118,5 +121,12 @@
   "lint-staged": {
     "*": "corepack pnpm run fix --"
   },
-  "packageManager": "pnpm@10.32.1"
+  "packageManager": "pnpm@10.32.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@embedded-postgres/windows-x64",
+      "esbuild",
+      "sharp"
+    ]
+  }
 }
