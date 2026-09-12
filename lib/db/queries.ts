@@ -16,7 +16,6 @@ import postgres from "postgres";
 import type { ArtifactKind } from "@/components/chat/artifact";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { ChatbotError } from "../errors";
-import { generateUUID } from "../utils";
 import {
   type Chat,
   chat,
@@ -30,40 +29,47 @@ import {
   user,
   vote,
 } from "./schema";
-import { generateHashedPassword } from "./utils";
 
 const client = postgres(process.env.POSTGRES_URL ?? "");
 const db = drizzle(client);
 
-export async function getUser(email: string): Promise<User[]> {
-  try {
-    return await db.select().from(user).where(eq(user.email, email));
-  } catch (error) {
-    throw new ChatbotError("bad_request:database", { cause: error });
-  }
-}
-
-export async function createUser(email: string, password: string) {
-  const hashedPassword = generateHashedPassword(password);
-
-  try {
-    return await db.insert(user).values({ email, password: hashedPassword });
-  } catch (error) {
-    throw new ChatbotError("bad_request:database", {
-      cause: error,
-    });
-  }
-}
-
-export async function createGuestUser() {
-  const email = `guest-${Date.now()}`;
-  const password = generateHashedPassword(generateUUID());
+/**
+ * Finds the student behind an email address and creates the row on their first
+ * sign-in. Emails are stored lower case so one student is always one row.
+ */
+export async function getOrCreateUserByEmail({
+  email,
+  name,
+  image,
+}: {
+  email: string;
+  name?: string | null;
+  image?: string | null;
+}): Promise<User> {
+  const normalizedEmail = email.trim().toLowerCase();
 
   try {
-    return await db.insert(user).values({ email, password }).returning({
-      email: user.email,
-      id: user.id,
-    });
+    const [existingUser] = await db
+      .select()
+      .from(user)
+      .where(eq(user.email, normalizedEmail))
+      .orderBy(asc(user.createdAt))
+      .limit(1);
+
+    if (existingUser) {
+      return existingUser;
+    }
+
+    const [createdUser] = await db
+      .insert(user)
+      .values({
+        email: normalizedEmail,
+        image: image ?? null,
+        name: name ?? null,
+      })
+      .returning();
+
+    return createdUser;
   } catch (error) {
     throw new ChatbotError("bad_request:database", { cause: error });
   }

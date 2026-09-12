@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import Google from "next-auth/providers/google";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -6,9 +7,11 @@ export const authConfig = {
   basePath: "/api/auth",
   callbacks: {},
   pages: {
+    error: `${base}/login`,
     newUser: `${base}/`,
     signIn: `${base}/login`,
   },
-  providers: [],
+  // Google reads AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET from the environment.
+  providers: [Google],
   trustHost: true,
 } satisfies NextAuthConfig;
