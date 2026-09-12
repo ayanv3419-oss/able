@@ -14,7 +14,6 @@ import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import {
-  allowedModelIds,
   chatModels,
   DEFAULT_CHAT_MODEL,
   getCapabilities,
@@ -78,8 +77,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
-      requestBody;
+    const { id, message, messages, selectedVisibilityType } = requestBody;
 
     const [botIdResult, session] = await Promise.all([
       checkBotId().catch(() => null),
@@ -94,9 +92,7 @@ export async function POST(request: Request) {
       return new ChatbotError("unauthorized:chat").toResponse();
     }
 
-    const chatModel = allowedModelIds.has(selectedChatModel)
-      ? selectedChatModel
-      : DEFAULT_CHAT_MODEL;
+    const chatModel = DEFAULT_CHAT_MODEL;
 
     await checkIpRateLimit(ipAddress(request));
 

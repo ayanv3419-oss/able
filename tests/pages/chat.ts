@@ -1,7 +1,5 @@
 import type { Page } from "@playwright/test";
 
-const MODEL_BUTTON_REGEX = /Kimi|Codestral|Mistral|DeepSeek|GPT|Grok/i;
-
 export class ChatPage {
   page: Page;
 
@@ -49,23 +47,5 @@ export class ChatPage {
       "[data-testid='suggested-actions'] button"
     );
     await suggestions.nth(index).click();
-  }
-
-  async openModelSelector() {
-    const modelButton = this.page
-      .locator("button")
-      .filter({ hasText: MODEL_BUTTON_REGEX })
-      .first();
-    await modelButton.click();
-  }
-
-  async selectModel(modelName: string) {
-    await this.openModelSelector();
-    await this.page.getByText(modelName).first().click();
-  }
-
-  async searchModels(query: string) {
-    await this.openModelSelector();
-    await this.page.getByPlaceholder("Search models...").fill(query);
   }
 }
