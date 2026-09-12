@@ -149,7 +149,7 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 | `AUTH_SECRET` | Auth.js secret |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Google OAuth client |
 | `GROQ_API_KEY` | Groq |
-| `POSTGRES_URL` | Postgres; Neon in production |
+| `POSTGRES_URL` | Postgres; Able's own Supabase project in production (pooled connection string) |
 | `ADMIN_EMAILS` | Comma-separated admin Google emails |
 | `UPI_ID`, `UPI_PAYEE_NAME` | Payment QR details |
 | `SUPPORT_EMAIL` | Shown on pricing and contact pages |
@@ -180,7 +180,7 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 
 1. Groq: create an API key, move to the Developer plan, and request higher limits for gpt-oss-120b. Base limits for the whole app are 30 requests a minute, 1,000 a day, 8,000 tokens a minute and 200,000 tokens a day.
 2. Google Cloud: create a web OAuth client with redirect URIs for localhost and the Vercel domain, and fill in the consent screen with the privacy page link.
-3. Neon: create a free database and copy its pooled connection string.
+3. Supabase: create a separate project for Able, never MetricAi's, in the Mumbai region and on the Pro plan so it never pauses. Copy its pooled (transaction) connection string into `POSTGRES_URL`. The daily reminder cron also keeps the database active.
 4. Provide the UPI ID and payee name, and the admin email or emails.
 5. Optional: a Resend key and sender address.
 6. Review the legal drafts.

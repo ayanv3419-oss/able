@@ -57,7 +57,7 @@ daily budget. A cheap question costs less of your day than an expensive one.
 - [Groq](https://groq.com): `openai/gpt-oss-120b` for answers,
   `openai/gpt-oss-20b` for chat titles, `whisper-large-v3-turbo` for voice
 - [Auth.js v5](https://authjs.dev) with Google as the only sign-in provider
-- [Drizzle ORM](https://orm.drizzle.team) on Postgres ([Neon](https://neon.tech)
+- [Drizzle ORM](https://orm.drizzle.team) on Postgres ([Supabase](https://supabase.com)
   in production, [`embedded-postgres`](https://www.npmjs.com/package/embedded-postgres)
   locally)
 - [shadcn/ui](https://ui.shadcn.com) with [Tailwind CSS 4](https://tailwindcss.com)
@@ -165,7 +165,7 @@ CI starts its own PostgreSQL service.
 | `AUTH_SECRET`                          | Auth.js secret                              |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Google OAuth client                         |
 | `GROQ_API_KEY`                         | Groq                                        |
-| `POSTGRES_URL`                         | Postgres; Neon in production                |
+| `POSTGRES_URL`                         | Postgres; Supabase in production            |
 | `ADMIN_EMAILS`                         | Comma-separated admin Google emails         |
 | `UPI_ID`, `UPI_PAYEE_NAME`             | Payment QR details                          |
 | `SUPPORT_EMAIL`                        | Shown on the pricing and contact pages      |
@@ -178,8 +178,11 @@ CI starts its own PostgreSQL service.
 
 Able deploys to [Vercel](https://vercel.com) as a standard Next.js app.
 
-1. **Neon**: create a database and copy the pooled connection string into
-   `POSTGRES_URL`.
+1. **Supabase**: create a separate project for Able (never share MetricAi's),
+   in the Mumbai region, on the Pro plan so it never pauses. Copy the pooled
+   (transaction) connection string into `POSTGRES_URL`; the database client
+   already disables prepared statements for it. The daily reminder cron also
+   keeps the database active.
 2. **Google Cloud**: create a web OAuth client. Add the redirect URIs
    `http://localhost:3000/api/auth/callback/google` and
    `https://<your-domain>/api/auth/callback/google`, and point the consent
