@@ -153,6 +153,13 @@ export function renderOgImage() {
         </div>
       </div>
     </div>,
-    { ...ogImageSize }
+    {
+      ...ogImageSize,
+      // Cache Components renders this route on demand, so let the CDN keep
+      // the rendered card. A deploy publishes a new URL and cache entry.
+      headers: {
+        "Cache-Control": "public, max-age=0, s-maxage=31536000, immutable",
+      },
+    }
   );
 }
