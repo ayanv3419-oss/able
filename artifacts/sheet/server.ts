@@ -1,16 +1,16 @@
 import { streamText } from "ai";
 import { sheetPrompt, updateDocumentPrompt } from "@/lib/ai/prompts";
-import { getLanguageModel } from "@/lib/ai/providers";
+import { getChatModel } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
 
 export const sheetDocumentHandler = createDocumentHandler<"sheet">({
   kind: "sheet",
-  onCreateDocument: async ({ title, dataStream, modelId }) => {
+  onCreateDocument: async ({ title, dataStream }) => {
     let draftContent = "";
 
     const { stream } = streamText({
       instructions: `${sheetPrompt}\n\nOutput ONLY the raw CSV data. No explanations, no markdown fences.`,
-      model: getLanguageModel(modelId),
+      model: getChatModel(),
       prompt: title,
     });
 
@@ -27,12 +27,12 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
 
     return draftContent;
   },
-  onUpdateDocument: async ({ document, description, dataStream, modelId }) => {
+  onUpdateDocument: async ({ document, description, dataStream }) => {
     let draftContent = "";
 
     const { stream } = streamText({
       instructions: `${updateDocumentPrompt(document.content, "sheet")}\n\nOutput ONLY the raw CSV data. No explanations, no markdown fences.`,
-      model: getLanguageModel(modelId),
+      model: getChatModel(),
       prompt: description,
     });
 

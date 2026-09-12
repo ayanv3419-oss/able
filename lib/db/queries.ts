@@ -3,7 +3,6 @@ import "server-only";
 import {
   and,
   asc,
-  count,
   desc,
   eq,
   gt,
@@ -525,37 +524,6 @@ export async function updateChatTitleById({
     return await db.update(chat).set({ title }).where(eq(chat.id, chatId));
   } catch {
     // Best effort title update.
-  }
-}
-
-export async function getMessageCountByUserId({
-  id,
-  differenceInHours,
-}: {
-  id: string;
-  differenceInHours: number;
-}) {
-  try {
-    const cutoffTime = new Date(
-      Date.now() - differenceInHours * 60 * 60 * 1000
-    );
-
-    const [stats] = await db
-      .select({ count: count(message.id) })
-      .from(message)
-      .innerJoin(chat, eq(message.chatId, chat.id))
-      .where(
-        and(
-          eq(chat.userId, id),
-          gte(message.createdAt, cutoffTime),
-          eq(message.role, "user")
-        )
-      )
-      .execute();
-
-    return stats?.count ?? 0;
-  } catch (error) {
-    throw new ChatbotError("bad_request:database", { cause: error });
   }
 }
 

@@ -1,8 +1,12 @@
-import { customProvider, gateway } from "ai";
+import { createGroq } from "@ai-sdk/groq";
+import { customProvider, type LanguageModel } from "ai";
 import { isTestEnvironment } from "../constants";
-import { titleModel } from "./models";
+import { CHAT_MODEL_ID, TITLE_MODEL_ID } from "./models";
 
-export const myProvider = isTestEnvironment
+const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+
+// Tests must never reach Groq, so they run against the mock models.
+const mockProvider = isTestEnvironment
   ? (() => {
       const {
         chatModel,
@@ -17,17 +21,16 @@ export const myProvider = isTestEnvironment
     })()
   : null;
 
-export function getLanguageModel(modelId: string) {
-  if (isTestEnvironment && myProvider) {
-    return myProvider.languageModel(modelId);
+export function getChatModel(): LanguageModel {
+  if (mockProvider) {
+    return mockProvider.languageModel("chat-model");
   }
-
-  return gateway.languageModel(modelId);
+  return groq(CHAT_MODEL_ID);
 }
 
-export function getTitleModel() {
-  if (isTestEnvironment && myProvider) {
-    return myProvider.languageModel("title-model");
+export function getTitleModel(): LanguageModel {
+  if (mockProvider) {
+    return mockProvider.languageModel("title-model");
   }
-  return gateway.languageModel(titleModel.id);
+  return groq(TITLE_MODEL_ID);
 }

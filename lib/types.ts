@@ -32,10 +32,8 @@ export type ChatTools = {
 export type StoredDocument = Omit<Document, "kind"> & { kind: ArtifactKind };
 
 export type WaitingStatusData = {
-  phase: "waiting" | "still-waiting" | "health" | "thinking";
+  phase: "waiting" | "still-waiting" | "thinking";
   message: string;
-  modelId: string;
-  modelName: string;
 };
 
 export type CustomUIDataTypes = {

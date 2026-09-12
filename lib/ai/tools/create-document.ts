@@ -11,14 +11,9 @@ import { generateUUID } from "@/lib/utils";
 type CreateDocumentProps = {
   session: Session;
   dataStream: UIMessageStreamWriter<ChatMessage>;
-  modelId: string;
 };
 
-export const createDocument = ({
-  session,
-  dataStream,
-  modelId,
-}: CreateDocumentProps) =>
+export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>
   tool({
     description:
       "Create an artifact. You MUST specify kind: use 'code' for any programming/algorithm request (creates a script), 'text' for essays/writing (creates a document), 'sheet' for spreadsheets/data.",
@@ -61,7 +56,6 @@ export const createDocument = ({
       await documentHandler.onCreateDocument({
         dataStream,
         id,
-        modelId,
         session,
         title,
       });
