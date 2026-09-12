@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ArtifactKind } from "@/components/chat/artifact";
 import type { createDocument } from "./ai/tools/create-document";
 import type { requestSuggestions } from "./ai/tools/request-suggestions";
+import type { saveMemory } from "./ai/tools/save-memory";
 import type { updateDocument } from "./ai/tools/update-document";
 import type { Document, Suggestion } from "./db/schema";
 
@@ -17,11 +18,13 @@ type updateDocumentTool = InferUITool<ReturnType<typeof updateDocument>>;
 type requestSuggestionsTool = InferUITool<
   ReturnType<typeof requestSuggestions>
 >;
+type saveMemoryTool = InferUITool<ReturnType<typeof saveMemory>>;
 
 export type ChatTools = {
   createDocument: createDocumentTool;
   updateDocument: updateDocumentTool;
   requestSuggestions: requestSuggestionsTool;
+  saveMemory: saveMemoryTool;
 };
 
 /**

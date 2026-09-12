@@ -1,5 +1,6 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
+import { useCallback } from "react";
 
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
@@ -45,7 +46,7 @@ const PurePreviewMessage = ({
   vote,
   isLoading,
   setMessages: _setMessages,
-  regenerate: _regenerate,
+  regenerate,
   isReadonly,
   requiresScrollPadding: _requiresScrollPadding,
   onEdit,
@@ -61,8 +62,15 @@ const PurePreviewMessage = ({
   requiresScrollPadding: boolean;
   onEdit?: (message: ChatMessage) => void;
 }) => {
+  const handleRegenerate = useCallback(
+    () => regenerate({ messageId: message.id }),
+    [message.id, regenerate]
+  );
   const attachmentsFromMessage = message.parts.filter(
     (part) => part.type === "file"
+  );
+  const sources = message.parts.filter(
+    (part) => part.type === "source-url" && /^https?:\/\//i.test(part.url)
   );
 
   useDataStream();
@@ -238,6 +246,7 @@ const PurePreviewMessage = ({
       key={`action-${message.id}`}
       message={message}
       onEdit={onEdit ? () => onEdit(message) : undefined}
+      onRegenerate={handleRegenerate}
       vote={vote}
     />
   );
@@ -248,6 +257,30 @@ const PurePreviewMessage = ({
     <>
       {attachments}
       {parts}
+      {sources.length > 0 && (
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer">
+            Sources ({sources.length})
+          </summary>
+          <ul className="mt-2 space-y-1">
+            {sources.map(
+              (source) =>
+                source.type === "source-url" && (
+                  <li key={source.sourceId}>
+                    <a
+                      className="break-words underline underline-offset-2"
+                      href={source.url}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {source.title || source.url}
+                    </a>
+                  </li>
+                )
+            )}
+          </ul>
+        </details>
+      )}
       {actions}
     </>
   );

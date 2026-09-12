@@ -24,12 +24,13 @@ const UNIQUE_VIOLATION = "23505";
 const DEFAULT_PAGE_SIZE = 50;
 
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === UNIQUE_VIOLATION
-  );
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  if ("code" in error && error.code === UNIQUE_VIOLATION) {
+    return true;
+  }
+  return "cause" in error && isUniqueViolation(error.cause);
 }
 
 function addDays(date: Date, days: number): Date {
@@ -74,37 +75,42 @@ export async function createPayment({
   studentNote?: string | null;
 }): Promise<Payment> {
   const normalizedUtr = utr.trim().toUpperCase();
-  const pending = await getPendingPaymentByUserId(userId);
-
-  if (pending) {
-    throw new ChatbotError("forbidden:payment");
-  }
-
-  const [duplicate] = await db
-    .select({ id: payment.id })
-    .from(payment)
-    .where(eq(payment.utr, normalizedUtr))
-    .limit(1);
-
-  if (duplicate) {
-    throw new ChatbotError("bad_request:payment");
-  }
-
   try {
-    const [created] = await db
-      .insert(payment)
-      .values({
-        amountInr,
-        planId,
-        status: "pending",
-        studentNote: studentNote ?? null,
-        userId,
-        utr: normalizedUtr,
-      })
-      .returning();
+    return await db.transaction(async (tx) => {
+      const [student] = await tx
+        .select({ id: user.id })
+        .from(user)
+        .where(eq(user.id, userId))
+        .for("update");
+      if (!student) {
+        throw new ChatbotError("unauthorized:auth");
+      }
+      const [pending] = await tx
+        .select({ id: payment.id })
+        .from(payment)
+        .where(and(eq(payment.userId, userId), eq(payment.status, "pending")))
+        .limit(1);
+      if (pending) {
+        throw new ChatbotError("forbidden:payment");
+      }
+      const [created] = await tx
+        .insert(payment)
+        .values({
+          amountInr,
+          planId,
+          status: "pending",
+          studentNote: studentNote ?? null,
+          userId,
+          utr: normalizedUtr,
+        })
+        .returning();
 
-    return created;
+      return created;
+    });
   } catch (error) {
+    if (error instanceof ChatbotError) {
+      throw error;
+    }
     if (isUniqueViolation(error)) {
       throw new ChatbotError("bad_request:payment", { cause: error });
     }
@@ -194,19 +200,31 @@ export async function approvePayment({
       );
     }
 
-    const [current] = await tx
+    // Serialize approvals for this student, including different payments.
+    await tx
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.id, existing.userId))
+      .for("update");
+
+    const unexpired = await tx
       .select()
       .from(subscription)
       .where(
         and(
           eq(subscription.userId, existing.userId),
           eq(subscription.status, "active"),
-          lte(subscription.startsAt, now),
           gt(subscription.endsAt, now)
         )
       )
-      .orderBy(desc(subscription.endsAt))
-      .limit(1);
+      .orderBy(desc(subscription.endsAt));
+
+    const changingPlan = unexpired.some(
+      (period) => period.planId !== existing.planId
+    );
+    const current = changingPlan
+      ? unexpired.find((period) => period.planId !== existing.planId)
+      : unexpired[0];
 
     const approval = computeApproval({
       current: current
@@ -216,11 +234,17 @@ export async function approvePayment({
       planId: existing.planId,
     });
 
-    if (approval.supersedeId) {
+    if (changingPlan) {
       await tx
         .update(subscription)
-        .set({ endsAt: now, status: "superseded" })
-        .where(eq(subscription.id, approval.supersedeId));
+        .set({ status: "superseded" })
+        .where(
+          and(
+            eq(subscription.userId, existing.userId),
+            eq(subscription.status, "active"),
+            gt(subscription.endsAt, now)
+          )
+        );
     }
 
     const [created] = await tx

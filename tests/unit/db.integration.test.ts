@@ -17,7 +17,7 @@ import { getEntitlement } from "@/lib/entitlements";
 import { referenceCostMicros } from "@/lib/metering";
 
 /** Only runs against a real database, started with `corepack pnpm db:local`. */
-const describeDb = process.env.POSTGRES_URL ? describe : describe.skip;
+const describeDb = process.env.TEST_POSTGRES_URL ? describe : describe.skip;
 
 describeDb("the data layer against a real Postgres", () => {
   const stamp = Date.now();

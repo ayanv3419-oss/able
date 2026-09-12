@@ -13,7 +13,7 @@ Able is a paid, ChatGPT-style assistant for students. This file is the single so
 | Money | Paid only. No free plan, no trial | OWNER |
 | AI provider | Groq only. Model `openai/gpt-oss-120b` for answers | OWNER |
 | Capacity | Owner applies to Groq for higher limits. Launch waits for approval | OWNER |
-| Sign-in | Google only | OWNER |
+| Sign-in | Local v1 opens without sign-in (owner update, 2026-09-12); Google retained for connected mode | OWNER |
 | Payment | Owner's own UPI QR code. No payment company | OWNER |
 | Activation | Owner approves each payment by hand on an admin page. No alerts | OWNER |
 | Plan length | 30 days from approval | default |
@@ -43,7 +43,7 @@ These fill gaps the interview did not cover. Keep them unless the owner override
 - Daily limits reset at midnight Asia/Kolkata.
 - Web search is a toggle in the composer, like ChatGPT's search button. The model only gets the search tool when the toggle is on.
 - Answers are family-safe for every user, because there is no age limit.
-- Titles for new chats come from `llama-3.1-8b-instant` on Groq. Title cost is recorded but never charged to the student's daily budget.
+- Titles for new chats come from `openai/gpt-oss-20b` on Groq. Title cost is recorded but never charged to the student's daily budget.
 - Plan changes are not pro-rated. Renewing the same plan early extends the end date. Paying for a different plan starts it immediately and ends the old period.
 - An expired or refunded student can still read old chats but cannot send messages.
 - Deleting a project moves its chats out of the project. It never deletes chats.
@@ -76,8 +76,8 @@ New tables, all with uuid primary keys and `createdAt` timestamps:
 | `Subscription` | `userId` → User, `planId`, `paymentId` → Payment unique, `startsAt`, `endsAt`, `status` enum active/superseded/revoked/refunded, `reminderSentAt` nullable |
 | `RefundRequest` | `paymentId` → Payment unique, `userId` → User, `reason` text, `status` enum open/refunded/declined, `resolvedAt` nullable, `resolvedBy` text nullable |
 | `UsageEvent` | `userId` → User, `chatId` nullable, `kind` enum chat/transcription/title, `planId` nullable, `inputTokens`, `cachedInputTokens`, `outputTokens`, `reasoningTokens`, `webSearches`, `audioSeconds` ints default 0, `costMicros` int (US dollars times one million), `countsTowardLimit` boolean. Index on (`userId`, `createdAt`) |
-| `Memory` | `userId` → User, `content` text up to 500 chars |
-| `UserSettings` | `userId` primary key → User, `aboutMe` text up to 1,500 chars, `responseStyle` text up to 1,500 chars, `memoryEnabled` boolean default true, `updatedAt` |
+| `Memory` | `userId` → User, `content` text up to 500 chars, `projectId` → Project nullable (project memory; deleted with its project) |
+| `UserSettings` | `userId` primary key → User, `aboutMe` text up to 1,500 chars, `responseStyle` text up to 1,500 chars, `memoryEnabled` boolean default true, `profile` json (name, role, interests, learning and response preferences, reply language), `updatedAt` |
 | `Attachment` | `userId` → User, `chatId` nullable, `name`, `mediaType`, `text`, `charCount` int |
 
 A subscription is current when its status is `active` and `startsAt <= now < endsAt`. "Expired" is derived from `endsAt`, never stored.
@@ -91,7 +91,7 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 | gpt-oss-120b input | 0.15 |
 | gpt-oss-120b cached input | 0.075 |
 | gpt-oss-120b output, reasoning included | 0.60 |
-| llama-3.1-8b-instant input / output | 0.05 / 0.08 |
+| openai/gpt-oss-20b input / output | 0.075 / 0.30 |
 | Web search | 0.005 per search, from third-party trackers |
 | Whisper large v3 turbo | 0.04 per hour of audio |
 
@@ -105,15 +105,16 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 
 ## 6. AI behaviour
 
-- Provider: `createGroq({ apiKey: process.env.GROQ_API_KEY })`. Chat model `openai/gpt-oss-120b` with `providerOptions.groq.reasoningEffort` set from the plan. Title model `llama-3.1-8b-instant`.
+- Provider: `createGroq({ apiKey: process.env.GROQ_API_KEY })`. Chat model `openai/gpt-oss-120b` with `providerOptions.groq.reasoningEffort` set from the plan. Title model `openai/gpt-oss-20b`.
 - Test runs keep the template's mock models when `isTestEnvironment` is true. No test may call Groq.
-- System prompt: Able is a helpful, clear assistant like ChatGPT, family-safe for all ages. Then, in order: the student's custom instructions, saved memories if memory is on (newest 50), and project instructions if the chat is in a project.
-- Tools: the template's document tools (`createDocument`, `editDocument`, `updateDocument`, `requestSuggestions`) stay, with text, code and sheet kinds. `saveMemory({ content })` saves a durable fact when the student asks Able to remember something or states a lasting preference, only when memory is on. `browser_search: groq.tools.browserSearch({})` is added only when the request's `webSearch` flag is true.
+- System prompt: Able is a helpful, clear assistant like ChatGPT, family-safe for all ages. `lib/ai/personalization-context.ts` then assembles the student's context, applied in this priority order: system and safety rules, project instructions, custom instructions, profile and relevant memory, project context (name, relevant project memories, and relevant excerpts from the same project's other chats, capped at 12,000 characters), the conversation, and the current message. Only relevant memories are sent (at most 10), never another project's memories or chats, and none when memory is off. The context is marked as data: it cannot override system rules, and Able must never invent profile facts, memories or history.
+- Reply language: an explicit request in the current message wins, then the profile's saved language, then the language and mixing style detected in the message (English, Hindi, Hinglish, Gujarati).
+- Tools: the template's document tools (`createDocument`, `editDocument`, `updateDocument`, `requestSuggestions`) stay, with text, code and sheet kinds. `saveMemory({ content, scope })` saves an explicitly stated durable fact or preference, to the current project (`scope: "project"`) or across Able (`scope: "global"`), only when memory is on. `browser_search: groq.tools.browserSearch({})` is added only when the request's `webSearch` flag is true.
 - Reasoning is streamed and shown in the existing collapsible reasoning component.
 
 ## 7. Flows
 
-**Sign-in.** Google only. Signed-out visitors go to `/login`, which has one "Continue with Google" button plus links to the legal pages. The first sign-in creates the `User` row by email. A test-only credentials provider named `test-login` exists only when `isTestEnvironment` is true and the app is not running in production mode.
+**Sign-in.** The local v1 opens directly into one persisted sample workspace, with no login page or Google provider. Run `pnpm dev:preview` to enable it. `/login` redirects to `/`, and the local session is available without cookies. This mode is disabled in production. Connected mode retains Google sign-in: signed-out visitors go to `/login`, and the first sign-in creates the `User` row by email. The `test-login` credentials provider exists only in non-production test runs outside local preview mode.
 
 **Paywall.** A student without a current plan sees the chat layout, but the composer is replaced by a card: choose a plan, waiting for approval, plan expired, or daily limit reached.
 
@@ -129,7 +130,7 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 
 **Projects.** A "Projects" section in the sidebar lists folders, with create, rename and delete. Chat rows get "Move to project" and "Remove from project". `/project/[id]` lists the project's chats, offers a new chat inside it, and edits its instructions. Creating a project beyond the plan's limit is blocked with an upgrade prompt.
 
-**Settings.** `/settings` holds custom instructions, the memory switch and memory list with delete and delete-all, plan status with days and messages left, payment history, the refund request, sign out, and delete account. Deleting an account removes the student's chats, messages, projects, memories, settings, usage and attachments. It keeps payment records with the user link cleared.
+**Settings.** `/settings` holds the profile (name, role, interests, learning and response preferences, reply language), custom instructions, the memory switch and memory list with delete and delete-all, plan status with days and messages left, payment history, the refund request, sign out, and delete account. Deleting an account removes the student's chats, messages, projects, memories, settings, usage and attachments. It keeps payment records with the user link cleared.
 
 **Files.** Uploads accept PDF, DOCX, TXT, MD and CSV up to 10 MB. The server extracts the text and stores it as an `Attachment`. Files over about 60,000 tokens, estimated as characters ÷ 4, are rejected with a message asking the student to split the file. The message carries a file part with the URL `attachment://<id>`. Before calling the model, the chat route swaps each such part for a text part with the stored text, after checking the attachment belongs to the student.
 

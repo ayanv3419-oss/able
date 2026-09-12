@@ -100,7 +100,7 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
       return "Your account does not have access to this feature.";
 
     case "rate_limit:chat":
-      return "You've reached the message limit. Come back in 1 hour to continue chatting.";
+      return "You've reached today's message allowance. It resets at midnight India time.";
     case "not_found:chat":
       return "The requested chat was not found. Please check the chat ID and try again.";
     case "forbidden:chat":

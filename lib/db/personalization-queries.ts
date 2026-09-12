@@ -1,8 +1,19 @@
 import "server-only";
 
-import { and, desc, eq, count as sqlCount } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  isNull,
+  or,
+  count as sqlCount,
+} from "drizzle-orm";
+import { ChatbotError } from "../errors";
+import { profileSchema, type UserProfile } from "../personalization";
 import { db } from "./client";
-import { type Memory, memory, userSettings } from "./schema";
+import { getProject } from "./project-queries";
+import { type Memory, memory, project, userSettings } from "./schema";
 
 /** A student may keep this many memories. */
 export const MEMORY_LIMIT = 100;
@@ -15,7 +26,26 @@ export type Personalization = {
   aboutMe: string;
   responseStyle: string;
   memoryEnabled: boolean;
+  profile: UserProfile;
 };
+
+/**
+ * Profiles are validated on the way out, so one malformed row (for example
+ * JSON saved as a string) degrades to an empty profile instead of breaking
+ * Settings and every chat.
+ */
+function readProfile(value: unknown): UserProfile {
+  let candidate: unknown = value ?? {};
+  if (typeof candidate === "string") {
+    try {
+      candidate = JSON.parse(candidate);
+    } catch {
+      candidate = {};
+    }
+  }
+  const parsed = profileSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : profileSchema.parse({});
+}
 
 /** Custom instructions and the memory switch, with defaults for a new student. */
 export async function getUserSettings(
@@ -30,6 +60,7 @@ export async function getUserSettings(
   return {
     aboutMe: row?.aboutMe ?? "",
     memoryEnabled: row?.memoryEnabled ?? true,
+    profile: readProfile(row?.profile),
     responseStyle: row?.responseStyle ?? "",
     userId,
   };
@@ -40,17 +71,20 @@ export async function upsertUserSettings({
   aboutMe,
   memoryEnabled,
   responseStyle,
+  profile,
   userId,
 }: {
   userId: string;
   aboutMe?: string;
   responseStyle?: string;
   memoryEnabled?: boolean;
+  profile?: UserProfile;
 }): Promise<Personalization> {
   const changes: {
     aboutMe?: string;
     responseStyle?: string;
     memoryEnabled?: boolean;
+    profile?: UserProfile;
     updatedAt: Date;
   } = { updatedAt: new Date() };
 
@@ -65,6 +99,9 @@ export async function upsertUserSettings({
   if (memoryEnabled !== undefined) {
     changes.memoryEnabled = memoryEnabled;
   }
+  if (profile !== undefined) {
+    changes.profile = profileSchema.parse(profile);
+  }
 
   const [row] = await db
     .insert(userSettings)
@@ -75,6 +112,7 @@ export async function upsertUserSettings({
   return {
     aboutMe: row.aboutMe ?? "",
     memoryEnabled: row.memoryEnabled,
+    profile: readProfile(row.profile),
     responseStyle: row.responseStyle ?? "",
     userId,
   };
@@ -84,14 +122,31 @@ export async function upsertUserSettings({
 export async function listMemories({
   limit = DEFAULT_MEMORY_PAGE,
   userId,
+  contextProjectId,
 }: {
   userId: string;
   limit?: number;
-}): Promise<Memory[]> {
+  /** Undefined lists all owned memories for Settings; null selects global only. */
+  contextProjectId?: string | null;
+}): Promise<Array<Memory & { projectName: string | null }>> {
   return await db
-    .select()
+    .select({ ...getTableColumns(memory), projectName: project.name })
     .from(memory)
-    .where(eq(memory.userId, userId))
+    .leftJoin(project, eq(memory.projectId, project.id))
+    .where(
+      and(
+        eq(memory.userId, userId),
+        or(isNull(memory.projectId), eq(project.userId, userId)),
+        contextProjectId === undefined
+          ? undefined
+          : contextProjectId === null
+            ? isNull(memory.projectId)
+            : or(
+                isNull(memory.projectId),
+                eq(memory.projectId, contextProjectId)
+              )
+      )
+    )
     .orderBy(desc(memory.createdAt))
     .limit(limit);
 }
@@ -100,10 +155,15 @@ export async function listMemories({
 export async function addMemory({
   content,
   userId,
+  projectId = null,
 }: {
   userId: string;
   content: string;
+  projectId?: string | null;
 }): Promise<Memory | null> {
+  if (projectId && !(await getProject({ id: projectId, userId }))) {
+    throw new ChatbotError("not_found:project");
+  }
   const trimmed = content.trim().slice(0, MEMORY_MAX_LENGTH);
 
   if (trimmed.length === 0) {
@@ -113,7 +173,13 @@ export async function addMemory({
   const [duplicate] = await db
     .select({ id: memory.id })
     .from(memory)
-    .where(and(eq(memory.userId, userId), eq(memory.content, trimmed)))
+    .where(
+      and(
+        eq(memory.userId, userId),
+        eq(memory.content, trimmed),
+        projectId ? eq(memory.projectId, projectId) : isNull(memory.projectId)
+      )
+    )
     .limit(1);
 
   if (duplicate) {
@@ -131,7 +197,7 @@ export async function addMemory({
 
   const [created] = await db
     .insert(memory)
-    .values({ content: trimmed, userId })
+    .values({ content: trimmed, projectId, userId })
     .returning();
 
   return created;

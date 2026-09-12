@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronUp } from "lucide-react";
+import Link from "next/link";
 import type { User } from "next-auth";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
@@ -29,7 +30,7 @@ function emailToHue(email: string): number {
 }
 
 export function SidebarUserNav({ user }: { user: User }) {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const { setTheme, resolvedTheme } = useTheme();
 
   const handleThemeSelect = useCallback(() => {
@@ -78,7 +79,11 @@ export function SidebarUserNav({ user }: { user: User }) {
                   }}
                 />
                 <span className="truncate text-[13px]" data-testid="user-email">
-                  {user?.email}
+                  {session?.localPreview
+                    ? session.mockResponses
+                      ? "Local v1 · sample responses"
+                      : "Local v1"
+                    : user?.email}
                 </span>
                 <ChevronUp className="ml-auto size-3.5 text-sidebar-foreground/50" />
               </SidebarMenuButton>
@@ -89,6 +94,13 @@ export function SidebarUserNav({ user }: { user: User }) {
             data-testid="user-nav-menu"
             side="top"
           >
+            <DropdownMenuItem asChild>
+              <Link href="/settings">Settings</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/billing">Plan &amp; payments</Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer text-[13px]"
               data-testid="user-nav-item-theme"
@@ -96,16 +108,20 @@ export function SidebarUserNav({ user }: { user: User }) {
             >
               {`Toggle ${resolvedTheme === "light" ? "dark" : "light"} mode`}
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild data-testid="user-nav-item-auth">
-              <button
-                className="w-full cursor-pointer text-[13px]"
-                onClick={handleSignOut}
-                type="button"
-              >
-                Sign out
-              </button>
-            </DropdownMenuItem>
+            {!session?.localPreview && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild data-testid="user-nav-item-auth">
+                  <button
+                    className="w-full cursor-pointer text-[13px]"
+                    onClick={handleSignOut}
+                    type="button"
+                  >
+                    Sign out
+                  </button>
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

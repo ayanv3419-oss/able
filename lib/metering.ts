@@ -14,10 +14,10 @@ export const CHAT_INPUT_USD_PER_MTOK = 0.15;
 export const CHAT_CACHED_INPUT_USD_PER_MTOK = 0.075;
 /** openai/gpt-oss-120b output, reasoning tokens included. */
 export const CHAT_OUTPUT_USD_PER_MTOK = 0.6;
-/** llama-3.1-8b-instant input, used for chat titles. */
-export const TITLE_INPUT_USD_PER_MTOK = 0.05;
-/** llama-3.1-8b-instant output, used for chat titles. */
-export const TITLE_OUTPUT_USD_PER_MTOK = 0.08;
+/** gpt-oss-20b prices: https://console.groq.com/docs/model/openai/gpt-oss-20b */
+export const TITLE_INPUT_USD_PER_MTOK = 0.075;
+export const TITLE_CACHED_INPUT_USD_PER_MTOK = 0.037;
+export const TITLE_OUTPUT_USD_PER_MTOK = 0.3;
 /** Dollars per web search, billed by the third-party trackers Groq uses. */
 export const WEB_SEARCH_USD = 0.005;
 /** Dollars per hour of audio for whisper-large-v3-turbo. */
@@ -66,8 +66,7 @@ function orZero(value: number | undefined): number {
 
 /**
  * Cost of one request in micro-dollars, rounded up. Missing numbers count as 0.
- * The title model has no separate cached-input price, so cached input on that
- * model is charged at its normal input price.
+ * Both models use their separate cached-input price.
  */
 export function costMicros(usage: UsageForCost): number {
   const isTitle = usage.model === "title";
@@ -75,7 +74,7 @@ export function costMicros(usage: UsageForCost): number {
     ? TITLE_INPUT_USD_PER_MTOK
     : CHAT_INPUT_USD_PER_MTOK;
   const cachedInputPrice = isTitle
-    ? TITLE_INPUT_USD_PER_MTOK
+    ? TITLE_CACHED_INPUT_USD_PER_MTOK
     : CHAT_CACHED_INPUT_USD_PER_MTOK;
   const outputPrice = isTitle
     ? TITLE_OUTPUT_USD_PER_MTOK

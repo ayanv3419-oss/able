@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PaywallCard } from "@/components/billing/paywall-card";
+import { UsageBanner } from "@/components/billing/usage-banner";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import {
   initialArtifactData,
   useArtifact,
   useArtifactSelector,
 } from "@/hooks/use-artifact";
+import { useEntitlement } from "@/hooks/use-entitlement";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Artifact } from "./artifact";
@@ -17,6 +20,16 @@ import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 
 export function ChatShell() {
+  const {
+    data: entitlement,
+    error: entitlementError,
+    mutate: refreshEntitlement,
+  } = useEntitlement();
+  const canSend = entitlement?.canSend === true;
+  const handleRefreshEntitlement = useCallback(
+    () => refreshEntitlement(),
+    [refreshEntitlement]
+  );
   const {
     chatId,
     messages,
@@ -109,7 +122,7 @@ export function ChatShell() {
               chatId={chatId}
               isArtifactVisible={isArtifactVisible}
               isLoading={isLoading}
-              isReadonly={isReadonly}
+              isReadonly={isReadonly || !canSend}
               messages={messages}
               onEditMessage={handleEditMessage}
               regenerate={regenerate}
@@ -118,8 +131,28 @@ export function ChatShell() {
               votes={votes}
             />
 
-            <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
-              {!isReadonly && (
+            <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl flex-col gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
+              {!isReadonly && entitlement && (
+                <UsageBanner entitlement={entitlement} />
+              )}
+              {!isReadonly && entitlement && !canSend && (
+                <PaywallCard entitlement={entitlement} />
+              )}
+              {!isReadonly && !entitlement && (
+                <div
+                  className="p-4 text-center text-sm text-muted-foreground"
+                  role="status"
+                >
+                  {entitlementError ? (
+                    <button onClick={handleRefreshEntitlement} type="button">
+                      Could not load your plan. Try again.
+                    </button>
+                  ) : (
+                    "Loading your plan…"
+                  )}
+                </div>
+              )}
+              {!isReadonly && canSend && (
                 <MultimodalInput
                   attachments={attachments}
                   chatId={chatId}
@@ -148,7 +181,7 @@ export function ChatShell() {
           attachments={attachments}
           chatId={chatId}
           input={input}
-          isReadonly={isReadonly}
+          isReadonly={isReadonly || !canSend}
           messages={messages}
           regenerate={regenerate}
           selectedVisibilityType={visibilityType}

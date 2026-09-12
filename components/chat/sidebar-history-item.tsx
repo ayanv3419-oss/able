@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { memo, useCallback } from "react";
+import { ProjectMoveMenu } from "@/components/project/project-move-menu";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import type { Chat } from "@/lib/db/schema";
 import {
@@ -114,6 +115,8 @@ const PureChatItem = ({
             </DropdownMenuPortal>
           </DropdownMenuSub>
 
+          <ProjectMoveMenu chatId={chat.id} currentProjectId={chat.projectId} />
+
           <DropdownMenuItem onSelect={handleDelete} variant="destructive">
             <TrashIcon />
             <span>Delete</span>
@@ -124,9 +127,4 @@ const PureChatItem = ({
   );
 };
 
-export const ChatItem = memo(PureChatItem, (prevProps, nextProps) => {
-  if (prevProps.isActive !== nextProps.isActive) {
-    return false;
-  }
-  return true;
-});
+export const ChatItem = memo(PureChatItem);

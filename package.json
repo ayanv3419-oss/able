@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
+    "dev:preview": "node scripts/preview.mjs --mock",
+    "dev:local": "node scripts/preview.mjs",
+    "dev:live": "node scripts/preview.mjs --live",
     "build": "tsx lib/db/migrate && next build",
     "start": "next start",
     "check": "ultracite check",
@@ -18,7 +21,8 @@
     "db:up": "drizzle-kit up",
     "db:local": "tsx scripts/local-db.ts",
     "db:create": "tsx scripts/db-create.ts",
-    "test": "export PLAYWRIGHT=True && pnpm exec playwright test",
+    "test": "node scripts/test.mjs e2e",
+    "test:db": "node scripts/test.mjs unit",
     "test:unit": "vitest run"
   },
   "dependencies": {

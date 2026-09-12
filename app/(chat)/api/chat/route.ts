@@ -1,28 +1,40 @@
 import type { GroqProviderOptions } from "@ai-sdk/groq";
 import { geolocation, ipAddress } from "@vercel/functions";
 import {
+  APICallError,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
   generateId,
   isStepCount,
+  type LanguageModelUsage,
+  type StepResult,
   streamText,
+  type Tool,
+  type ToolSet,
   toUIMessageStream,
 } from "ai";
 import { checkBotId } from "botid/server";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth } from "@/app/(auth)/auth";
+import { generateChatTitle } from "@/lib/ai/generate-title";
+import { GroqSearchTracker } from "@/lib/ai/groq-search";
+import { buildPersonalizationContext } from "@/lib/ai/personalization-context";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
-import { getChatModel } from "@/lib/ai/providers";
+import { getChatModel, groq } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { editDocument } from "@/lib/ai/tools/edit-document";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
+import { saveMemory } from "@/lib/ai/tools/save-memory";
 import { updateDocument } from "@/lib/ai/tools/update-document";
+import { usageForBilling } from "@/lib/ai/usage";
 import { isProductionEnvironment } from "@/lib/constants";
+import { getAttachments } from "@/lib/db/attachment-queries";
 import {
   createStreamId,
   deleteChatById,
+  deleteMessagesByChatIdAfterTimestamp,
   getChatById,
   getMessagesByChatId,
   saveChat,
@@ -31,16 +43,20 @@ import {
   updateMessage,
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
+import { insertUsageEvent } from "@/lib/db/usage-queries";
+import { getEntitlement } from "@/lib/entitlements";
 import { ChatbotError } from "@/lib/errors";
+import { costMicros } from "@/lib/metering";
+import type { PlanId } from "@/lib/plans";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
-import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 
 const STILL_WAITING_DELAY_MS = 9000;
+const ATTACHMENT_URL_PREFIX = "attachment://";
 
 function isModelStreamActivity(chunk: { type: string }) {
   return !["start", "start-step", "finish-step", "finish", "raw"].includes(
@@ -58,6 +74,184 @@ function getStreamContext() {
 
 export { getStreamContext };
 
+type FilePart = {
+  type: "file";
+  mediaType: string;
+  filename?: string;
+  url: string;
+};
+
+function isFilePart(part: { type: string }): part is FilePart {
+  return part.type === "file";
+}
+
+/**
+ * Swaps every `attachment://<id>` file part for a text part carrying the
+ * stored extraction, after checking the attachment belongs to the caller.
+ * Reject missing or foreign attachments before sending anything to the model.
+ */
+async function resolveAttachmentParts(
+  messages: ChatMessage[],
+  userId: string
+): Promise<ChatMessage[]> {
+  const ids = new Set<string>();
+
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (isFilePart(part) && part.url.startsWith(ATTACHMENT_URL_PREFIX)) {
+        ids.add(part.url.slice(ATTACHMENT_URL_PREFIX.length));
+      }
+    }
+  }
+
+  if (ids.size === 0) {
+    return messages;
+  }
+
+  const attachments = await getAttachments({ ids: [...ids], userId });
+  const byId = new Map(
+    attachments.map((attachment) => [attachment.id, attachment])
+  );
+
+  return messages.map((message) => ({
+    ...message,
+    parts: message.parts.flatMap((part) => {
+      if (!isFilePart(part) || !part.url.startsWith(ATTACHMENT_URL_PREFIX)) {
+        return [part];
+      }
+
+      const attachment = byId.get(part.url.slice(ATTACHMENT_URL_PREFIX.length));
+
+      if (!attachment) {
+        throw new ChatbotError(
+          "bad_request:api",
+          "An attachment is missing or belongs to another account."
+        );
+      }
+
+      return [
+        {
+          text: `Attached file "${attachment.name}": ${attachment.text}`,
+          type: "text" as const,
+        },
+      ];
+    }),
+  })) as ChatMessage[];
+}
+
+/** Billing numbers summed across every step of one assistant turn. */
+type StepBilling = {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  searchCount: number;
+};
+
+function aggregateStepsForBilling<TOOLS extends ToolSet>(
+  steps: readonly StepResult<TOOLS>[]
+): StepBilling {
+  return steps.reduce<StepBilling>(
+    (acc, step) => {
+      const { usage } = step;
+      return {
+        cachedInputTokens:
+          acc.cachedInputTokens +
+          (usage.inputTokenDetails?.cacheReadTokens ?? 0),
+        inputTokens: acc.inputTokens + usageForBilling(usage).inputTokens,
+        outputTokens: acc.outputTokens + (usage.outputTokens ?? 0),
+        reasoningTokens:
+          acc.reasoningTokens +
+          (usage.outputTokenDetails?.reasoningTokens ?? 0),
+        searchCount:
+          acc.searchCount +
+          step.toolCalls.filter((call) => call.toolName === "browser_search")
+            .length,
+      };
+    },
+    {
+      cachedInputTokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      searchCount: 0,
+    }
+  );
+}
+
+function billingFromUsage(
+  usage: LanguageModelUsage,
+  searchCount: number
+): StepBilling {
+  return {
+    cachedInputTokens: usage.inputTokenDetails?.cacheReadTokens ?? 0,
+    inputTokens: usageForBilling(usage).inputTokens,
+    outputTokens: usage.outputTokens ?? 0,
+    reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? 0,
+    searchCount,
+  };
+}
+
+/** Records what one assistant turn cost. Never throws into the chat stream. */
+async function recordChatUsage({
+  billing,
+  chatId,
+  planId,
+  userId,
+}: {
+  userId: string;
+  chatId: string;
+  planId: PlanId;
+  billing: StepBilling;
+}) {
+  try {
+    await insertUsageEvent({
+      audioSeconds: 0,
+      cachedInputTokens: billing.cachedInputTokens,
+      chatId,
+      costMicros: costMicros({
+        cachedInputTokens: billing.cachedInputTokens,
+        inputTokens: billing.inputTokens,
+        model: "chat",
+        outputTokens: billing.outputTokens,
+        webSearches: billing.searchCount,
+      }),
+      countsTowardLimit: true,
+      inputTokens: billing.inputTokens,
+      kind: "chat",
+      outputTokens: billing.outputTokens,
+      planId,
+      reasoningTokens: billing.reasoningTokens,
+      userId,
+      webSearches: billing.searchCount,
+    });
+  } catch (error) {
+    console.error("Failed to record chat usage:", error);
+  }
+}
+
+function textOfParts(parts: ChatMessage["parts"]): string {
+  return parts
+    .map((part) => (part.type === "text" ? part.text : ""))
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** The newest user message's text, used to pick relevant memories and the reply language. */
+function latestUserText(messages: ChatMessage[]): string {
+  const latest = messages.findLast((item) => item.role === "user");
+  return latest ? textOfParts(latest.parts) : "";
+}
+
+/** A short tail of the conversation, so follow-ups like "explain that again" stay on topic. */
+function recentConversationText(messages: ChatMessage[]): string {
+  return messages
+    .slice(-6)
+    .map((item) => textOfParts(item.parts))
+    .join("\n")
+    .slice(-1500);
+}
+
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
@@ -69,10 +263,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedVisibilityType } = requestBody;
+    const {
+      id,
+      message,
+      messages,
+      selectedVisibilityType,
+      webSearch,
+      trigger,
+    } = requestBody;
 
     const [botIdResult, session] = await Promise.all([
-      checkBotId().catch(() => null),
+      isProductionEnvironment ? checkBotId().catch(() => null) : null,
       auth(),
     ]);
 
@@ -86,6 +287,30 @@ export async function POST(request: Request) {
 
     await checkIpRateLimit(ipAddress(request));
 
+    const userId = session.user.id;
+
+    // Entitlements and metering gate every model call (SPEC §1, §5, §6).
+    const entitlement = await getEntitlement(userId);
+
+    if (!entitlement.canSend || !entitlement.planId) {
+      if (
+        entitlement.blockReason === "daily-limit" ||
+        entitlement.blockReason === "fair-use-limit"
+      ) {
+        return new ChatbotError(
+          "rate_limit:chat",
+          entitlement.blockReason
+        ).toResponse();
+      }
+
+      return new ChatbotError(
+        "forbidden:plan",
+        entitlement.blockReason ?? undefined
+      ).toResponse();
+    }
+
+    const { planId } = entitlement;
+
     const isToolApprovalFlow = Boolean(messages);
 
     const chat = await getChatById({ id });
@@ -97,14 +322,39 @@ export async function POST(request: Request) {
         return new ChatbotError("forbidden:chat").toResponse();
       }
       messagesFromDb = await getMessagesByChatId({ id });
+      const existingIndex = message
+        ? messagesFromDb.findIndex((item) => item.id === message.id)
+        : -1;
+      if (existingIndex >= 0) {
+        if (
+          trigger !== "regenerate-message" ||
+          messagesFromDb[existingIndex].role !== "user"
+        ) {
+          return new ChatbotError(
+            "bad_request:api",
+            "This message has already been sent."
+          ).toResponse();
+        }
+        await resolveAttachmentParts([message as ChatMessage], userId);
+        await deleteMessagesByChatIdAfterTimestamp({
+          chatId: id,
+          timestamp: messagesFromDb[existingIndex].createdAt,
+        });
+        messagesFromDb = messagesFromDb.slice(0, existingIndex);
+      }
     } else if (message?.role === "user") {
+      await resolveAttachmentParts([message as ChatMessage], userId);
       await saveChat({
         id,
         title: "New chat",
         userId: session.user.id,
         visibility: selectedVisibilityType,
       });
-      titlePromise = generateTitleFromUserMessage({ message });
+      titlePromise = generateChatTitle({ chatId: id, message, userId }).catch(
+        () => "New chat"
+      );
+    } else {
+      return new ChatbotError("not_found:chat").toResponse();
     }
 
     let uiMessages: ChatMessage[];
@@ -169,10 +419,40 @@ export async function POST(request: Request) {
       });
     }
 
-    const modelMessages = await convertToModelMessages(uiMessages);
+    // Personalized context: profile, custom instructions, relevant memories,
+    // project instructions and same-project history, in docs/SPEC.md §6 order.
+    // buildPersonalizationContext re-checks project ownership itself.
+    const personal = await buildPersonalizationContext({
+      conversationHint: recentConversationText(uiMessages),
+      currentChatId: id,
+      currentInput: latestUserText(uiMessages),
+      projectId: chat?.projectId ?? null,
+      userId,
+    });
+    const userSettings = personal.settings;
+
+    const resolvedMessages = await resolveAttachmentParts(uiMessages, userId);
+    const textLength = resolvedMessages.reduce(
+      (total, item) =>
+        total +
+        item.parts.reduce(
+          (length, part) =>
+            length + (part.type === "text" ? part.text.length : 0),
+          0
+        ),
+      0
+    );
+    if (textLength > 360_000) {
+      return new ChatbotError(
+        "bad_request:api",
+        "This conversation is too long. Start a new chat or use smaller files."
+      ).toResponse();
+    }
+    const modelMessages = await convertToModelMessages(resolvedMessages);
 
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
+        let usageRecorded = false;
         let hasModelActivity = false;
         let stillWaitingTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -216,50 +496,112 @@ export async function POST(request: Request) {
           clearStillWaitingTimer();
         };
 
+        const toolSet = {
+          createDocument: createDocument({ dataStream, session }),
+          editDocument: editDocument({ dataStream, session }),
+          requestSuggestions: requestSuggestions({ dataStream, session }),
+          updateDocument: updateDocument({ dataStream, session }),
+          ...(userSettings.memoryEnabled
+            ? {
+                saveMemory: saveMemory({
+                  projectId: personal.projectId,
+                  userId,
+                }),
+              }
+            : {}),
+          // @ai-sdk/groq pins an older @ai-sdk/provider-utils than this repo's
+          // "ai", so its tool factory's structural type doesn't quite match
+          // this build's `Tool`. The cast is safe: Groq's own SDK produces it.
+          ...(webSearch
+            ? {
+                browser_search: groq.tools.browserSearch({}) as unknown as Tool,
+              }
+            : {}),
+        };
+
+        const searchTracker = new GroqSearchTracker();
         const result = streamText({
-          instructions: systemPrompt({ requestHints }),
+          abortSignal: request.signal,
+          activeTools: Object.keys(toolSet) as (keyof typeof toolSet)[],
+          include: { rawChunks: webSearch },
+          instructions: systemPrompt({
+            personalization: personal.context,
+            requestHints,
+          }),
           messages: modelMessages,
           model: getChatModel(),
-          onAbort() {
+          async onAbort(event) {
             stopWaitingStatus();
+            if (usageRecorded) {
+              return;
+            }
+            usageRecorded = true;
+            const billing = aggregateStepsForBilling(event.steps);
+            billing.searchCount = Math.max(
+              billing.searchCount,
+              searchTracker.searchCount
+            );
+            await recordChatUsage({ billing, chatId: id, planId, userId });
           },
           onChunk({ chunk }) {
+            if (chunk.type === "start-step") {
+              searchTracker.startStep();
+            }
+            if (chunk.type === "raw") {
+              for (const source of searchTracker.read(chunk.rawValue)) {
+                dataStream.write({ type: "source-url", ...source });
+              }
+            }
             if (isModelStreamActivity(chunk)) {
               markModelActive();
             }
           },
-          onEnd() {
+          async onEnd(event) {
             stopWaitingStatus();
+            if (usageRecorded) {
+              return;
+            }
+            usageRecorded = true;
+            const billing = billingFromUsage(
+              event.usage,
+              Math.max(
+                searchTracker.searchCount,
+                event.toolCalls.filter(
+                  (call) => call?.toolName === "browser_search"
+                ).length
+              )
+            );
+            await recordChatUsage({ billing, chatId: id, planId, userId });
           },
           onError() {
             stopWaitingStatus();
           },
-          // Placeholder: a later change sets this from the student plan.
           providerOptions: {
-            groq: { reasoningEffort: "low" } satisfies GroqProviderOptions,
+            groq: {
+              reasoningEffort: entitlement.reasoningEffort,
+            } satisfies GroqProviderOptions,
           },
           stopWhen: isStepCount(5),
           telemetry: {
             functionId: "stream-text",
             isEnabled: isProductionEnvironment,
           },
-          tools: {
-            createDocument: createDocument({ dataStream, session }),
-            editDocument: editDocument({ dataStream, session }),
-            requestSuggestions: requestSuggestions({ dataStream, session }),
-            updateDocument: updateDocument({ dataStream, session }),
-          },
+          tools: toolSet,
         });
 
         dataStream.merge(
-          toUIMessageStream({ sendReasoning: true, stream: result.stream })
+          toUIMessageStream({
+            sendReasoning: true,
+            sendSources: true,
+            stream: result.stream,
+          })
         );
 
         if (titlePromise) {
           try {
             const title = await titlePromise;
             dataStream.write({ data: title, type: "data-chat-title" });
-            updateChatTitleById({ chatId: id, title });
+            await updateChatTitleById({ chatId: id, title });
           } catch {
             /* non-fatal */
           }
@@ -308,7 +650,10 @@ export async function POST(request: Request) {
           });
         }
       },
-      onError: () => "Oops, an error occurred!",
+      onError: (error) =>
+        APICallError.isInstance(error) && error.statusCode === 429
+          ? "Able is busy right now, try again in a minute."
+          : "Able could not finish this response. Please try again.",
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
     });
 

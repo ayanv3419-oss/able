@@ -6,7 +6,7 @@ import { getDocumentById, saveSuggestions } from "@/lib/db/queries";
 import type { Suggestion } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
-import { getChatModel } from "../providers";
+import { meteredArtifactOptions } from "../metered-artifact";
 
 type RequestSuggestionsProps = {
   session: Session;
@@ -45,7 +45,7 @@ export const requestSuggestions = ({
       const { partialOutputStream } = streamText({
         instructions:
           "You are a writing assistant. Given a piece of writing, offer up to 5 suggestions to improve it. Each suggestion must contain full sentences, not just individual words. Describe what changed and why.",
-        model: getChatModel(),
+        ...(await meteredArtifactOptions(session.user.id)),
         output: Output.array({
           element: z.object({
             description: z

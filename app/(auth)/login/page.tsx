@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { SubmitButton } from "@/components/chat/submit-button";
+import { isLocalPreview } from "@/lib/constants";
 import { signInWithGoogle } from "../actions";
 
 const legalLinks = [
@@ -78,6 +80,10 @@ export default function Page({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  if (isLocalPreview) {
+    redirect("/");
+  }
+
   return (
     <main className="flex w-full max-w-sm flex-col items-center gap-8">
       <div className="flex flex-col items-center gap-2 text-center">

@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
+import { isLocalPreview } from "@/lib/constants";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -12,6 +13,6 @@ export const authConfig = {
     signIn: `${base}/login`,
   },
   // Google reads AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET from the environment.
-  providers: [Google],
+  providers: isLocalPreview ? [] : [Google],
   trustHost: true,
 } satisfies NextAuthConfig;

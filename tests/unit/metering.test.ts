@@ -58,9 +58,9 @@ describe("costMicros", () => {
   });
 
   it("uses the cheaper title prices for titles", () => {
-    expect(costMicros({ inputTokens: 1_000_000, model: "title" })).toBe(50_000);
+    expect(costMicros({ inputTokens: 1_000_000, model: "title" })).toBe(75_000);
     expect(costMicros({ model: "title", outputTokens: 1_000_000 })).toBe(
-      80_000
+      300_000
     );
   });
 });

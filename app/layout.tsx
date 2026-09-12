@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
+import { Toaster } from "sonner";
 
 const DESCRIPTION = "Ask Able anything. A fast AI assistant for students.";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
@@ -98,6 +99,14 @@ export default function RootLayout({
             basePath={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/auth`}
           >
             <TooltipProvider>{children}</TooltipProvider>
+            <Toaster
+              position="top-center"
+              theme="system"
+              toastOptions={{
+                className:
+                  "!bg-card !text-foreground !border-border/50 !shadow-[var(--shadow-float)]",
+              }}
+            />
           </SessionProvider>
         </ThemeProvider>
       </body>

@@ -14,6 +14,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import type { UserProfile } from "../personalization";
 
 export const planIdEnum = pgEnum("plan_id", ["basic", "plus", "pro"]);
 
@@ -191,19 +192,27 @@ export const stream = pgTable(
 
 export type Stream = InferSelectModel<typeof stream>;
 
-export const payment = pgTable("Payment", {
-  amountInr: integer("amountInr").notNull(),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  planId: planIdEnum("planId").notNull(),
-  reviewedAt: timestamp("reviewedAt"),
-  reviewedBy: text("reviewedBy"),
-  reviewNote: text("reviewNote"),
-  status: paymentStatusEnum("status").notNull().default("pending"),
-  studentNote: text("studentNote"),
-  userId: uuid("userId").references(() => user.id, { onDelete: "set null" }),
-  utr: varchar("utr", { length: 32 }).notNull().unique(),
-});
+export const payment = pgTable(
+  "Payment",
+  {
+    amountInr: integer("amountInr").notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    planId: planIdEnum("planId").notNull(),
+    reviewedAt: timestamp("reviewedAt"),
+    reviewedBy: text("reviewedBy"),
+    reviewNote: text("reviewNote"),
+    status: paymentStatusEnum("status").notNull().default("pending"),
+    studentNote: text("studentNote"),
+    userId: uuid("userId").references(() => user.id, { onDelete: "set null" }),
+    utr: varchar("utr", { length: 32 }).notNull().unique(),
+  },
+  (table) => [
+    uniqueIndex("Payment_one_pending_per_user")
+      .on(table.userId)
+      .where(sql`${table.status} = 'pending'`),
+  ]
+);
 
 export type Payment = InferSelectModel<typeof payment>;
 
@@ -272,14 +281,23 @@ export const usageEvent = pgTable(
 export type UsageEvent = InferSelectModel<typeof usageEvent>;
 export type NewUsageEvent = InferInsertModel<typeof usageEvent>;
 
-export const memory = pgTable("Memory", {
-  content: varchar("content", { length: 500 }).notNull(),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  userId: uuid("userId")
-    .notNull()
-    .references(() => user.id),
-});
+export const memory = pgTable(
+  "Memory",
+  {
+    content: varchar("content", { length: 500 }).notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("projectId").references(() => project.id, {
+      onDelete: "cascade",
+    }),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+  },
+  (table) => ({
+    userProject: index("Memory_user_project").on(table.userId, table.projectId),
+  })
+);
 
 export type Memory = InferSelectModel<typeof memory>;
 
@@ -287,6 +305,7 @@ export const userSettings = pgTable("UserSettings", {
   aboutMe: varchar("aboutMe", { length: 1500 }),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   memoryEnabled: boolean("memoryEnabled").notNull().default(true),
+  profile: json("profile").$type<Partial<UserProfile>>().notNull().default({}),
   responseStyle: varchar("responseStyle", { length: 1500 }),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
   userId: uuid("userId")

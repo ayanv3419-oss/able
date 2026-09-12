@@ -28,8 +28,11 @@ export const PreviewAttachment = ({
           width={96}
         />
       ) : (
-        <div className="flex size-full items-center justify-center text-muted-foreground text-xs">
-          File
+        <div
+          className="flex size-full items-center justify-center break-words p-2 text-center text-muted-foreground text-xs"
+          title={name}
+        >
+          {name || "File"}
         </div>
       )}
 
@@ -44,6 +47,7 @@ export const PreviewAttachment = ({
 
       {onRemove && !isUploading && (
         <button
+          aria-label={`Remove ${name}`}
           className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/80 group-hover:opacity-100"
           onClick={onRemove}
           type="button"

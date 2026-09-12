@@ -3,6 +3,8 @@ node_modules
 .pnp.js
 coverage
 .next/
+.next-preview/
+.next-e2e/
 out/
 build
 .DS_Store

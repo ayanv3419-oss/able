@@ -1,4 +1,5 @@
 import { expect as baseExpect, test as baseTest } from "@playwright/test";
+import { seedPaidStudent } from "./db";
 import { generateTestEmail, signInWithTestLogin } from "./helpers";
 import { ChatPage } from "./pages/chat";
 
@@ -18,9 +19,10 @@ export const test = baseTest.extend<Fixtures>({
   },
   page: async ({ page, studentEmail }, use) => {
     await signInWithTestLogin(page, studentEmail);
+    await seedPaidStudent(studentEmail);
     await use(page);
   },
-  studentEmail: async (_deps, use) => {
+  studentEmail: async ({ baseURL: _baseURL }, use) => {
     await use(generateTestEmail());
   },
 });

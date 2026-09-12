@@ -14,6 +14,7 @@ import {
   SidebarHistory,
 } from "@/components/chat/sidebar-history";
 import { SidebarUserNav } from "@/components/chat/sidebar-user-nav";
+import { ProjectsNav } from "@/components/project/projects-nav";
 import {
   Sidebar,
   SidebarContent,
@@ -63,18 +64,24 @@ export function AppSidebar({ user }: { user: User | undefined }) {
     setShowDeleteAllDialog(true);
   }, []);
 
-  const handleDeleteAll = useCallback(() => {
+  const handleDeleteAll = useCallback(async () => {
     setShowDeleteAllDialog(false);
-    router.replace("/");
-    mutate(unstable_serialize(getChatHistoryPaginationKey), [], {
-      revalidate: false,
-    });
-
-    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/history`, {
-      method: "DELETE",
-    });
-
-    toast.success("All chats deleted");
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/history`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Could not delete chats");
+      }
+      router.replace("/");
+      await mutate(unstable_serialize(getChatHistoryPaginationKey));
+      toast.success("All chats deleted");
+    } catch {
+      toast.error("Could not delete chats. Please try again.");
+    }
   }, [mutate, router]);
 
   return (
@@ -142,6 +149,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+          {user ? <ProjectsNav /> : null}
           <SidebarHistory user={user} />
         </SidebarContent>
         <SidebarFooter className="border-t border-sidebar-border pt-2 pb-3">

@@ -35,7 +35,7 @@ const COPY: Record<BlockReason, Copy> = {
     title: "Choose a plan",
   },
   pending: {
-    body: "Your payment is waiting for approval. You will get an email once it is approved.",
+    body: "Your payment is waiting for approval. Check your payment status here.",
     cta: "Check payment status",
     href: "/billing",
     title: "Waiting for approval",

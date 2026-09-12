@@ -25,6 +25,10 @@ test.describe("Chat Page", () => {
   });
 
   test("can stop generation with stop button", async ({ page }) => {
+    await page.route("**/api/chat", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await route.continue();
+    });
     await page.goto("/");
 
     // Type and send a message
@@ -35,9 +39,8 @@ test.describe("Chat Page", () => {
     const stopButton = page.getByTestId("stop-button");
     // If generation starts, stop button appears
     // This is a best-effort check since timing depends on API
-    await stopButton.click({ timeout: 5000 }).catch(() => {
-      // Generation may have finished before we could click
-    });
+    await stopButton.click({ timeout: 5000 });
+    await expect(stopButton).toBeHidden();
   });
 });
 
@@ -56,6 +59,6 @@ test.describe("Chat Input Features", () => {
     await page.goto("/");
     const input = page.getByTestId("multimodal-input");
     await input.fill("Line 1\nLine 2\nLine 3");
-    await expect(input).toContainText("Line 1");
+    await expect(input).toHaveValue("Line 1\nLine 2\nLine 3");
   });
 });

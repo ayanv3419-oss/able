@@ -1,33 +1,13 @@
 "use server";
 
-import { generateText, type UIMessage } from "ai";
 import { auth } from "@/app/(auth)/auth";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
-import { titlePrompt } from "@/lib/ai/prompts";
-import { getTitleModel } from "@/lib/ai/providers";
 import {
   deleteMessagesByChatIdAfterTimestamp,
   getChatById,
   getMessageById,
   updateChatVisibilityById,
 } from "@/lib/db/queries";
-import { getTextFromMessage } from "@/lib/utils";
-
-export async function generateTitleFromUserMessage({
-  message,
-}: {
-  message: UIMessage;
-}) {
-  const { text } = await generateText({
-    instructions: titlePrompt,
-    model: getTitleModel(),
-    prompt: getTextFromMessage(message),
-  });
-  return text
-    .replace(/^[#*"\s]+/, "")
-    .replace(/["]+$/, "")
-    .trim();
-}
 
 export async function deleteTrailingMessages({ id }: { id: string }) {
   const session = await auth();

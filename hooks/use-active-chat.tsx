@@ -22,6 +22,7 @@ import { getChatHistoryPaginationKey } from "@/components/chat/sidebar-history";
 import { toast } from "@/components/chat/toast";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { useAutoResume } from "@/hooks/use-auto-resume";
+import { ENTITLEMENT_URL } from "@/hooks/use-entitlement";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
@@ -42,6 +43,8 @@ type ActiveChatContextValue = {
   isReadonly: boolean;
   isLoading: boolean;
   votes: Vote[] | undefined;
+  webSearch: boolean;
+  setWebSearch: Dispatch<SetStateAction<boolean>>;
 };
 
 const ActiveChatContext = createContext<ActiveChatContextValue | null>(null);
@@ -69,6 +72,9 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
   const chatId = chatIdFromUrl ?? newChatIdRef.current;
 
   const [input, setInput] = useState("");
+  const [webSearch, setWebSearch] = useState(false);
+  const webSearchRef = useRef(webSearch);
+  webSearchRef.current = webSearch;
 
   const { data: chatData, isLoading } = useSWR(
     isNewChat
@@ -106,6 +112,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onError: (error) => {
+      mutate(ENTITLEMENT_URL);
       if (error instanceof ChatbotError) {
         toast({ description: error.message, type: "error" });
       } else {
@@ -117,6 +124,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
+      mutate(ENTITLEMENT_URL);
     },
     sendAutomaticallyWhen: ({ messages: currentMessages }) => {
       const lastMessage = currentMessages.at(-1);
@@ -136,23 +144,21 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       prepareSendMessagesRequest(request) {
         const lastMessage = request.messages.at(-1);
         const isToolApprovalContinuation =
-          lastMessage?.role !== "user" ||
-          request.messages.some((msg) =>
-            msg.parts?.some((part) => {
-              const { state } = part as { state?: string };
-              return (
-                state === "approval-responded" || state === "output-denied"
-              );
-            })
-          );
+          lastMessage?.role === "assistant" &&
+          lastMessage.parts?.some((part) => {
+            const { state } = part as { state?: string };
+            return state === "approval-responded" || state === "output-denied";
+          });
 
         return {
           body: {
             id: request.id,
+            trigger: request.trigger,
             ...(isToolApprovalContinuation
               ? { messages: request.messages }
               : { message: lastMessage }),
             selectedVisibilityType: visibility,
+            webSearch: webSearchRef.current,
             ...request.body,
           },
         };
@@ -239,10 +245,12 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       sendMessage,
       setInput,
       setMessages,
+      setWebSearch,
       status,
       stop,
       visibilityType: visibility,
       votes,
+      webSearch,
     }),
     [
       chatId,
@@ -259,6 +267,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       isNewChat,
       isLoading,
       votes,
+      webSearch,
     ]
   );
 

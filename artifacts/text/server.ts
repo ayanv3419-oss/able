@@ -1,18 +1,18 @@
 import { smoothStream, streamText } from "ai";
+import { meteredArtifactOptions } from "@/lib/ai/metered-artifact";
 import { updateDocumentPrompt } from "@/lib/ai/prompts";
-import { getChatModel } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
 
 export const textDocumentHandler = createDocumentHandler<"text">({
   kind: "text",
-  onCreateDocument: async ({ title, dataStream }) => {
+  onCreateDocument: async ({ title, dataStream, session }) => {
     let draftContent = "";
 
     const { stream } = streamText({
       experimental_transform: smoothStream({ chunking: "word" }),
       instructions:
         "Write about the given topic. Markdown is supported. Use headings wherever appropriate.",
-      model: getChatModel(),
+      ...(await meteredArtifactOptions(session.user.id)),
       prompt: title,
     });
 
@@ -29,13 +29,13 @@ export const textDocumentHandler = createDocumentHandler<"text">({
 
     return draftContent;
   },
-  onUpdateDocument: async ({ document, description, dataStream }) => {
+  onUpdateDocument: async ({ document, description, dataStream, session }) => {
     let draftContent = "";
 
     const { stream } = streamText({
       experimental_transform: smoothStream({ chunking: "word" }),
       instructions: updateDocumentPrompt(document.content, "text"),
-      model: getChatModel(),
+      ...(await meteredArtifactOptions(session.user.id)),
       prompt: description,
     });
 

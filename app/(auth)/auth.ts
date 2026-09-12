@@ -1,8 +1,14 @@
-import NextAuth, { type DefaultSession } from "next-auth";
+import { connection, type NextRequest } from "next/server";
+import NextAuth, { type DefaultSession, type Session } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
-import { isProductionEnvironment, isTestEnvironment } from "@/lib/constants";
+import {
+  isLocalPreview,
+  isProductionEnvironment,
+  isTestEnvironment,
+  useMockAI,
+} from "@/lib/constants";
 import { getOrCreateUserByEmail } from "@/lib/db/queries";
 import { authConfig } from "./auth.config";
 
@@ -10,6 +16,8 @@ export type UserType = "regular";
 
 declare module "next-auth" {
   interface Session extends DefaultSession {
+    localPreview?: boolean;
+    mockResponses?: boolean;
     user: {
       id: string;
       type: UserType;
@@ -45,14 +53,10 @@ const testLogin = Credentials({
   name: "Test login",
 });
 
-const isTestLoginEnabled = isTestEnvironment && !isProductionEnvironment;
+const isTestLoginEnabled =
+  isTestEnvironment && !isProductionEnvironment && !isLocalPreview;
 
-export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
+const nextAuth = NextAuth({
   ...authConfig,
   callbacks: {
     async jwt({ token, user }) {
@@ -97,3 +101,61 @@ export const {
     ...(isTestLoginEnabled ? [testLogin] : []),
   ],
 });
+
+export const { signIn, signOut } = nextAuth;
+
+/** Local v1 shares one persisted workspace; no Google account or cookie needed. */
+export async function auth(): Promise<Session | null> {
+  if (!isLocalPreview) {
+    return nextAuth.auth();
+  }
+
+  await connection();
+  const student = await getOrCreateUserByEmail({
+    email: "preview@able.test",
+    name: "Local v1",
+  });
+
+  return {
+    expires: new Date(Date.now() + 86_400_000).toISOString(),
+    localPreview: true,
+    mockResponses: useMockAI,
+    user: {
+      email: student.email,
+      id: student.id,
+      image: student.image,
+      name: "Local v1",
+      type: "regular",
+    },
+  };
+}
+
+export async function GET(request: NextRequest) {
+  if (!isLocalPreview) {
+    return nextAuth.handlers.GET(request);
+  }
+
+  const action = request.nextUrl.pathname.split("/").at(-1);
+  if (action === "session") {
+    return Response.json(await auth(), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+  if (action === "providers") {
+    return Response.json({}, { headers: { "Cache-Control": "no-store" } });
+  }
+  return Response.json(
+    { error: "Sign-in is disabled in local v1." },
+    { status: 404 }
+  );
+}
+
+export function POST(request: NextRequest) {
+  if (isLocalPreview) {
+    return Response.json(
+      { error: "Sign-in is disabled in local v1." },
+      { status: 404 }
+    );
+  }
+  return nextAuth.handlers.POST(request);
+}

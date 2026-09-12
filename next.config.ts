@@ -4,6 +4,12 @@ import type { NextConfig } from "next";
 const basePath = process.env.IS_DEMO === "1" ? "/demo" : "";
 
 const nextConfig: NextConfig = {
+  distDir:
+    process.env.ABLE_LOCAL_PREVIEW === "true"
+      ? ".next-preview"
+      : process.env.ABLE_E2E === "true"
+        ? ".next-e2e"
+        : ".next",
   ...(basePath
     ? {
         assetPrefix: "/demo-assets",

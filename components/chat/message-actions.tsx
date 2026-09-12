@@ -1,4 +1,5 @@
 import equal from "fast-deep-equal";
+import { RotateCcw } from "lucide-react";
 import { memo, useCallback } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
@@ -17,12 +18,14 @@ export function PureMessageActions({
   vote,
   isLoading,
   onEdit,
+  onRegenerate,
 }: {
   chatId: string;
   message: ChatMessage;
   vote: Vote | undefined;
   isLoading: boolean;
   onEdit?: () => void;
+  onRegenerate?: () => void;
 }) {
   const { mutate } = useSWRConfig();
   const [_, copyToClipboard] = useCopyToClipboard();
@@ -165,6 +168,15 @@ export function PureMessageActions({
 
   return (
     <Actions className="-ml-0.5 opacity-0 transition-opacity duration-150 group-hover/message:opacity-100">
+      {Boolean(onRegenerate) && (
+        <Action
+          data-testid="message-regenerate"
+          onClick={onRegenerate}
+          tooltip="Regenerate response"
+        >
+          <RotateCcw className="size-4" />
+        </Action>
+      )}
       <Action
         className="text-muted-foreground/50 hover:text-foreground"
         onClick={handleCopy}
@@ -199,6 +211,13 @@ export function PureMessageActions({
 export const MessageActions = memo(
   PureMessageActions,
   (prevProps, nextProps) => {
+    if (
+      prevProps.message !== nextProps.message ||
+      prevProps.onEdit !== nextProps.onEdit ||
+      prevProps.onRegenerate !== nextProps.onRegenerate
+    ) {
+      return false;
+    }
     if (!equal(prevProps.vote, nextProps.vote)) {
       return false;
     }

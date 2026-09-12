@@ -1,9 +1,25 @@
 import "server-only";
 
-import { and, desc, eq, count as sqlCount } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  gt,
+  lte,
+  count as sqlCount,
+} from "drizzle-orm";
 import { ChatbotError } from "../errors";
+import { getPlan } from "../plans";
 import { db } from "./client";
-import { type Chat, chat, type Project, project } from "./schema";
+import {
+  type Chat,
+  chat,
+  type Project,
+  project,
+  subscription,
+  user,
+} from "./schema";
 
 const NAME_MAX_LENGTH = 60;
 
@@ -28,6 +44,41 @@ export async function countProjects(userId: string): Promise<number> {
   return row?.value ?? 0;
 }
 
+/** Counts only chats owned by the same student as their project. */
+export async function listProjectsWithChatCounts(userId: string) {
+  return await db
+    .select({ ...getTableColumns(project), chatCount: sqlCount(chat.id) })
+    .from(project)
+    .leftJoin(
+      chat,
+      and(eq(chat.projectId, project.id), eq(chat.userId, userId))
+    )
+    .where(eq(project.userId, userId))
+    .groupBy(project.id)
+    .orderBy(desc(project.updatedAt));
+}
+
+export async function countChatsInProject({
+  projectId,
+  userId,
+}: {
+  projectId: string;
+  userId: string;
+}): Promise<number> {
+  const [row] = await db
+    .select({ value: sqlCount(chat.id) })
+    .from(chat)
+    .innerJoin(project, eq(chat.projectId, project.id))
+    .where(
+      and(
+        eq(project.id, projectId),
+        eq(project.userId, userId),
+        eq(chat.userId, userId)
+      )
+    );
+  return row?.value ?? 0;
+}
+
 export async function getProject({
   id,
   userId,
@@ -45,9 +96,8 @@ export async function getProject({
 }
 
 /**
- * Creates a folder. The caller must check the plan's folder limit first with
- * canCreateProject from lib/entitlements; checking it here would make the
- * entitlement and project modules import each other.
+ * Checks the current plan and creates a folder under the same student lock.
+ * Parallel requests cannot both consume the last available folder slot.
  */
 export async function createProject({
   instructions,
@@ -58,16 +108,51 @@ export async function createProject({
   name: string;
   instructions?: string | null;
 }): Promise<Project> {
-  const [created] = await db
-    .insert(project)
-    .values({
-      instructions: instructions ?? null,
-      name: cleanName(name),
-      userId,
-    })
-    .returning();
+  return await db.transaction(async (tx) => {
+    const [student] = await tx
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.id, userId))
+      .for("update");
+    if (!student) {
+      throw new ChatbotError("unauthorized:auth");
+    }
+    const now = new Date();
+    const [active] = await tx
+      .select()
+      .from(subscription)
+      .where(
+        and(
+          eq(subscription.userId, userId),
+          eq(subscription.status, "active"),
+          lte(subscription.startsAt, now),
+          gt(subscription.endsAt, now)
+        )
+      )
+      .orderBy(desc(subscription.endsAt))
+      .limit(1);
+    if (!active) {
+      throw new ChatbotError("forbidden:plan");
+    }
+    const limit = getPlan(active.planId).projectFolderLimit;
+    const [used] = await tx
+      .select({ count: sqlCount() })
+      .from(project)
+      .where(eq(project.userId, userId));
+    if (limit !== null && used.count >= limit) {
+      throw new ChatbotError("forbidden:project");
+    }
+    const [created] = await tx
+      .insert(project)
+      .values({
+        instructions: instructions ?? null,
+        name: cleanName(name),
+        userId,
+      })
+      .returning();
 
-  return created;
+    return created;
+  });
 }
 
 export async function updateProject({
@@ -170,8 +255,15 @@ export async function listChatsInProject({
   userId: string;
 }): Promise<Chat[]> {
   return await db
-    .select()
+    .select(getTableColumns(chat))
     .from(chat)
-    .where(and(eq(chat.projectId, projectId), eq(chat.userId, userId)))
+    .innerJoin(project, eq(chat.projectId, project.id))
+    .where(
+      and(
+        eq(project.id, projectId),
+        eq(project.userId, userId),
+        eq(chat.userId, userId)
+      )
+    )
     .orderBy(desc(chat.createdAt));
 }

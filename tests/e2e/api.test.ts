@@ -1,7 +1,6 @@
 import { expect, test } from "../fixtures";
 
 const CHAT_URL_REGEX = /\/chat\/[\w-]+/;
-const ERROR_TEXT_REGEX = /error|failed|trouble/i;
 
 test.describe("Chat API Integration", () => {
   test("sends message and receives AI response", async ({ page }) => {
@@ -58,21 +57,32 @@ test.describe("Chat Error Handling", () => {
   test("handles API error gracefully", async ({ page }) => {
     await page.route("**/api/chat", async (route) => {
       await route.fulfill({
-        body: JSON.stringify({ error: "Internal server error" }),
+        body: JSON.stringify({
+          code: "offline:chat",
+          message: "We're having trouble sending your message.",
+        }),
         contentType: "application/json",
-        status: 500,
+        status: 503,
       });
     });
 
     await page.goto("/");
     const input = page.getByTestId("multimodal-input");
-    await input.fill("Test error");
-    await page.getByTestId("send-button").click();
+    await input.fill("Hello");
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/chat") && response.status() === 503
+      ),
+      page.getByTestId("send-button").click(),
+    ]);
 
     // Should show error toast or message
-    await expect(page.getByText(ERROR_TEXT_REGEX).first()).toBeVisible({
-      timeout: 5000,
-    });
+    await expect(
+      page
+        .locator("[data-sonner-toast]")
+        .filter({ hasText: "trouble sending your message" })
+    ).toBeVisible();
   });
 });
 
@@ -83,13 +93,10 @@ test.describe("Suggested Actions", () => {
     const suggestions = page.locator(
       "[data-testid='suggested-actions'] button"
     );
-    const count = await suggestions.count();
+    await expect(suggestions).toHaveCount(4);
+    await suggestions.first().click();
 
-    if (count > 0) {
-      await suggestions.first().click();
-
-      // Should redirect after clicking suggestion
-      await expect(page).toHaveURL(CHAT_URL_REGEX, { timeout: 10_000 });
-    }
+    // Should redirect after clicking suggestion
+    await expect(page).toHaveURL(CHAT_URL_REGEX, { timeout: 10_000 });
   });
 });

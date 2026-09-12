@@ -17,6 +17,9 @@ source of truth for every decision in this repository.
 - **Chat** with streaming answers, stop, regenerate, and edit-and-resend.
 - **History** you can search, rename and delete, grouped into project folders.
 - **Projects**: folders with their own instructions, applied to every chat inside.
+  Open Projects, select a project, then open its folder to browse the existing
+  conversations and return to the same chat interface. Folder counts and lists
+  use the existing database relationship and check ownership on the server.
 - **Markdown, code blocks and maths**, plus a collapsible view of the model's
   reasoning.
 - **Web search** as a composer toggle, so the model only gets the search tool
@@ -52,7 +55,7 @@ daily budget. A cheap question costs less of your day than an expensive one.
 - [Next.js 16](https://nextjs.org) App Router with `proxy.ts`, React 19
 - [AI SDK 7](https://ai-sdk.dev) with [`@ai-sdk/groq`](https://ai-sdk.dev/providers/ai-sdk-providers/groq)
 - [Groq](https://groq.com): `openai/gpt-oss-120b` for answers,
-  `llama-3.1-8b-instant` for chat titles, `whisper-large-v3-turbo` for voice
+  `openai/gpt-oss-20b` for chat titles, `whisper-large-v3-turbo` for voice
 - [Auth.js v5](https://authjs.dev) with Google as the only sign-in provider
 - [Drizzle ORM](https://orm.drizzle.team) on Postgres ([Neon](https://neon.tech)
   in production, [`embedded-postgres`](https://www.npmjs.com/package/embedded-postgres)
@@ -100,6 +103,23 @@ Directory map:
 
 ## Running locally
 
+### Local v1: no Google authentication
+
+After starting the local database and running migrations, use
+`corepack pnpm dev:local` and open [localhost:3105](http://localhost:3105).
+This version opens directly into a shared local workspace with a sample Plus
+plan. It uses real Groq responses when `GROQ_API_KEY` is configured;
+`corepack pnpm dev:live` requires a key and `corepack pnpm dev:preview` always
+uses sample responses. Google credentials and a sign-in step are not needed.
+Chats and settings stay in the local database. The preview command binds to
+the local computer; the no-login mode is disabled in production builds.
+Payments use `UPI_ID` and `UPI_PAYEE_NAME` from `.env.local`, including the
+local workspace. Every plan generates its QR code and payment link for that
+account and its own price. Local payment settings take effect without a server
+restart. Payment approval remains manual.
+
+### Connected setup
+
 There is no Docker or system Postgres requirement: `embedded-postgres` runs a
 real Postgres on port 5433 with its data in `.localdb/`.
 
@@ -120,13 +140,21 @@ Able is then on [localhost:3000](http://localhost:3000).
 
 ```bash
 corepack pnpm test:unit         # vitest: plans, metering, entitlements, refunds
+corepack pnpm test:db           # unit tests plus isolated database integration
 corepack pnpm test              # playwright end-to-end, with mock models
 corepack pnpm check             # biome through ultracite
 corepack pnpm exec tsc --noEmit # types
+node scripts/test.mjs build     # production build with isolated test database
 ```
 
 Tests never call Groq, Google or Resend. The end-to-end suite uses the
 template's mock models and a test-only credentials provider.
+
+`test:db` creates and migrates the local `able_test` database. Browser tests
+use that database and a separate app on port 3106, leaving the local workspace
+on port 3105 running. Set `TEST_POSTGRES_URL` to override the local database
+(its name must end in `_test`). Test runs clear live AI and email credentials.
+CI starts its own PostgreSQL service.
 
 ## Environment
 

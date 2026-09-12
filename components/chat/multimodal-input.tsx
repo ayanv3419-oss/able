@@ -3,7 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { ArrowUpIcon } from "lucide-react";
+import { ArrowUpIcon, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -18,6 +18,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
+import { useActiveChat } from "@/hooks/use-active-chat";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -37,6 +38,7 @@ import {
 } from "./slash-commands";
 import { SuggestedActions } from "./suggested-actions";
 import type { VisibilityType } from "./visibility-selector";
+import { VoiceInput } from "./voice-input";
 
 function PureMultimodalInput({
   chatId,
@@ -74,6 +76,16 @@ function PureMultimodalInput({
   isLoading?: boolean;
 }) {
   const router = useRouter();
+  const { webSearch, setWebSearch } = useActiveChat();
+  const toggleWebSearch = useCallback(
+    () => setWebSearch((value) => !value),
+    [setWebSearch]
+  );
+  const appendTranscript = useCallback(
+    (text: string) =>
+      setInput((current) => (current ? `${current} ${text}` : text)),
+    [setInput]
+  );
   const { setTheme, resolvedTheme } = useTheme();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -194,15 +206,19 @@ function PureMultimodalInput({
     sendMessage({
       parts: [
         ...attachments.map((attachment) => ({
+          filename: attachment.name,
           mediaType: attachment.contentType,
-          name: attachment.name,
           type: "file" as const,
           url: attachment.url,
         })),
-        {
-          text: input,
-          type: "text",
-        },
+        ...(input.trim()
+          ? [
+              {
+                text: input,
+                type: "text" as const,
+              },
+            ]
+          : []),
       ],
       role: "user",
     });
@@ -350,6 +366,9 @@ function PureMultimodalInput({
   }, []);
 
   const handlePromptSubmit = useCallback(() => {
+    if (uploadQueue.length > 0) {
+      return;
+    }
     if (input.startsWith("/")) {
       const query = input.slice(1).trim();
       const cmd = slashCommands.find((c) => c.name === query);
@@ -366,7 +385,14 @@ function PureMultimodalInput({
     } else {
       toast.error("Please wait for the model to finish its response!");
     }
-  }, [attachments.length, handleSlashSelect, input, status, submitForm]);
+  }, [
+    attachments.length,
+    handleSlashSelect,
+    input,
+    status,
+    submitForm,
+    uploadQueue.length,
+  ]);
 
   const handleTextareaKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -440,6 +466,7 @@ function PureMultimodalInput({
         )}
 
       <input
+        accept=".pdf,.docx,.txt,.md,.csv"
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
         multiple
         onChange={handleFileChange}
@@ -504,9 +531,26 @@ function PureMultimodalInput({
         <PromptInputFooter className="px-3 pb-3">
           <PromptInputTools>
             <AttachmentsButton fileInputRef={fileInputRef} status={status} />
+            <Button
+              aria-label="Search the web"
+              aria-pressed={webSearch}
+              className="h-7 gap-1.5 rounded-lg px-2 text-xs"
+              data-testid="web-search-toggle"
+              disabled={status === "submitted" || status === "streaming"}
+              onClick={toggleWebSearch}
+              type="button"
+              variant={webSearch ? "secondary" : "ghost"}
+            >
+              <Globe className="size-3.5" />
+              Search
+            </Button>
+            <VoiceInput
+              disabled={status === "submitted" || status === "streaming"}
+              onTranscript={appendTranscript}
+            />
           </PromptInputTools>
 
-          {status === "submitted" ? (
+          {status === "submitted" || status === "streaming" ? (
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
             <PromptInputSubmit
@@ -517,7 +561,10 @@ function PureMultimodalInput({
                   : "bg-muted text-muted-foreground/25 cursor-not-allowed"
               )}
               data-testid="send-button"
-              disabled={!input.trim() || uploadQueue.length > 0}
+              disabled={
+                (!input.trim() && attachments.length === 0) ||
+                uploadQueue.length > 0
+              }
               status={status}
               variant="secondary"
             >
@@ -600,9 +647,10 @@ function PureAttachmentsButton({
 
   return (
     <Button
+      aria-label="Attach a file"
       className="h-7 w-7 rounded-lg border border-border/40 p-1 text-foreground transition-colors hover:border-border hover:text-foreground disabled:cursor-not-allowed disabled:text-muted-foreground/30"
       data-testid="attachments-button"
-      disabled={status !== "ready"}
+      disabled={status === "submitted" || status === "streaming"}
       onClick={handleClick}
       variant="ghost"
     >
@@ -631,6 +679,7 @@ function PureStopButton({
 
   return (
     <Button
+      aria-label="Stop generating"
       className="h-7 w-7 rounded-xl bg-foreground p-1 text-background transition-all duration-200 hover:opacity-85 active:scale-95 disabled:bg-muted disabled:text-muted-foreground/25 disabled:cursor-not-allowed"
       data-testid="stop-button"
       onClick={handleClick}

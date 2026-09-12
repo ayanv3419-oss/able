@@ -1,10 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { isLocalPreview } from "./lib/constants";
 import { ChatbotError } from "./lib/errors";
 
 /** Pages anyone may open, signed in or not. */
 const publicPages = [
   "/login",
+  "/register",
   "/terms",
   "/privacy",
   "/refunds",
@@ -48,6 +50,12 @@ export async function proxy(request: NextRequest) {
 
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
+  if (isLocalPreview) {
+    return pathname === "/login"
+      ? NextResponse.redirect(new URL(`${base}/`, request.url))
+      : NextResponse.next();
+  }
+
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
@@ -84,6 +92,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Everything except Next's internals and files, which are all public.
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*.[^/]+$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.[^/]+$).*)",
   ],
 };
