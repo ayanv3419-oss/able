@@ -73,6 +73,8 @@ export async function updateProfileAction(
 
   await upsertUserSettings({ profile: parsed.data, userId });
   revalidatePath("/settings");
+  // The chat screen greets the student by this name.
+  revalidatePath("/", "layout");
 
   return { success: true };
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PaywallCard } from "@/components/billing/paywall-card";
-import { UsageBanner } from "@/components/billing/usage-banner";
+import { PlanNotice } from "@/components/billing/plan-notice";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import {
   initialArtifactData,
@@ -18,8 +18,10 @@ import { DataStreamHandler } from "./data-stream-handler";
 import { submitEditedMessage } from "./message-editor";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
+import { SuggestedActions } from "./suggested-actions";
 
-export function ChatShell() {
+/** The chat screen. The layout passes the name the greeting uses. */
+export function ChatShell({ greetingName }: { greetingName: string }) {
   const {
     data: entitlement,
     error: entitlementError,
@@ -51,6 +53,10 @@ export function ChatShell() {
     null
   );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  // The suggestions sit under the greeting while the student can send and
+  // nothing is being edited or attached.
+  const showSuggestions =
+    !isReadonly && canSend && !editingMessage && attachments.length === 0;
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
   const { setArtifact } = useArtifact();
 
@@ -110,16 +116,13 @@ export function ChatShell() {
             isArtifactVisible ? "w-[40%]" : "w-full"
           )}
         >
-          <ChatHeader
-            chatId={chatId}
-            isReadonly={isReadonly}
-            selectedVisibilityType={visibilityType}
-          />
+          <ChatHeader />
 
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-tl-[12px] md:border-t md:border-l md:border-border/40">
             <Messages
               addToolApprovalResponse={addToolApprovalResponse}
               chatId={chatId}
+              greetingName={greetingName}
               isArtifactVisible={isArtifactVisible}
               isLoading={isLoading}
               isReadonly={isReadonly || !canSend}
@@ -128,12 +131,21 @@ export function ChatShell() {
               regenerate={regenerate}
               setMessages={setMessages}
               status={status}
+              suggestions={
+                showSuggestions ? (
+                  <SuggestedActions
+                    chatId={chatId}
+                    selectedVisibilityType={visibilityType}
+                    sendMessage={sendMessage}
+                  />
+                ) : undefined
+              }
               votes={votes}
             />
 
             <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl flex-col gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
               {!isReadonly && entitlement && (
-                <UsageBanner entitlement={entitlement} />
+                <PlanNotice entitlement={entitlement} />
               )}
               {!isReadonly && entitlement && !canSend && (
                 <PaywallCard entitlement={entitlement} />
@@ -158,10 +170,7 @@ export function ChatShell() {
                   chatId={chatId}
                   editingMessage={editingMessage}
                   input={input}
-                  isLoading={isLoading}
-                  messages={messages}
                   onCancelEdit={handleCancelEdit}
-                  selectedVisibilityType={visibilityType}
                   sendMessage={
                     editingMessage ? handleSendEditedMessage : sendMessage
                   }

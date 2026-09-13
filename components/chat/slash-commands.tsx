@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  BombIcon,
   PaletteIcon,
   PenLineIcon,
   PenSquareIcon,
@@ -50,12 +49,6 @@ export const slashCommands: SlashCommand[] = [
     description: "Delete current chat",
     icon: <XIcon className="size-3.5" />,
     name: "delete",
-  },
-  {
-    action: "purge",
-    description: "Delete all chats",
-    icon: <BombIcon className="size-3.5" />,
-    name: "purge",
   },
 ];
 

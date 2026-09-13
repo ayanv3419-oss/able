@@ -15,3 +15,16 @@ export async function seedPaidStudent(email: string) {
     await sql.end();
   }
 }
+
+/** Moves the student's plan end to the given number of days from now. */
+export async function setPlanEndsInDays(email: string, days: number) {
+  if (!process.env.TEST_POSTGRES_URL) {
+    throw new Error("Use pnpm test with the isolated test database.");
+  }
+  const sql = postgres(process.env.TEST_POSTGRES_URL, { max: 1 });
+  try {
+    await sql`UPDATE "Subscription" SET "endsAt" = now() + make_interval(days => ${days}::int) WHERE "userId" = (SELECT id FROM "User" WHERE email = ${email})`;
+  } finally {
+    await sql.end();
+  }
+}

@@ -122,11 +122,13 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 
 **Approve.** On approval of a payment for plan X at time T: if the student has a current subscription on plan X, the new period starts at its `endsAt` and runs 30 days. Otherwise the new period starts at T and runs 30 days, and any current subscription on another plan is marked `superseded` with `endsAt` set to T. Rejecting records a reason the student can see.
 
-**Renew.** A banner appears from three days before `endsAt`. A daily Vercel cron at `/api/cron/reminders`, protected by `CRON_SECRET`, emails students whose plan ends within three days and sets `reminderSentAt`.
+**Renew.** From three days before `endsAt`, one line above the message box says when the plan ends, with a Renew button. The same line appears when fewer than 10 messages are left today. A daily Vercel cron at `/api/cron/reminders`, protected by `CRON_SECRET`, emails students whose plan ends within three days and sets `reminderSentAt`.
 
 **Refund.** Within 7 days of approval, the student can request a refund from settings with a reason. The admin pays them back over UPI outside the app, then marks the request refunded. That sets the payment to `refunded` and the subscription to `refunded`, ending access at once. Declining records who declined it.
 
 **Admin.** `/admin` is allowed only for emails listed in `ADMIN_EMAILS`, checked on the server in the layout and in every action. It shows a pending-payments count, a payments queue with approve and reject, subscriptions with revoke and extend-by-days, refund requests, user search with today's usage, and today's and the last 30 days' AI cost in dollars and in rupees at ₹95.44 per dollar.
+
+**Home screen.** An empty chat greets the student by the time of day on their own clock and by name, for example "Good evening, Ayan". The name is the nickname from Settings, else the first name on the Google account. The four suggested prompts sit right under the greeting. The top bar has no sharing lock; sharing stays in each chat's menu in the sidebar. There is no way to delete all chats at once. The plan usage card lives in Settings and Billing only.
 
 **Projects.** The sidebar has one "Projects" entry that opens `/projects`. That page shows the student's projects as gray folders sorted A to Z, with only the name underneath; long names wrap to two lines, then end with "…". Five folders fit per row on a laptop and three on a phone. Each folder has a "…" menu with rename and delete, shown on hover and always on touch screens. A "New project" button sits at the top right. Chat rows get "Move to project" and "Remove from project". `/project/[id]` lists the project's chats, offers a new chat inside it, and edits its instructions. Creating a project beyond the plan's limit is blocked with an upgrade prompt.
 

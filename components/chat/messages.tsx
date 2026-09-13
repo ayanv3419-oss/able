@@ -1,6 +1,6 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { ArrowDownIcon } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { type ReactNode, useCallback, useEffect, useRef } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
@@ -21,6 +21,10 @@ type MessagesProps = {
   isArtifactVisible: boolean;
   isLoading?: boolean;
   onEditMessage?: (message: ChatMessage) => void;
+  /** The name in the greeting on an empty chat. */
+  greetingName: string;
+  /** Suggested prompts shown right under the greeting. */
+  suggestions?: ReactNode;
 };
 
 function PureMessages({
@@ -35,6 +39,8 @@ function PureMessages({
   isArtifactVisible,
   isLoading,
   onEditMessage,
+  greetingName,
+  suggestions,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -65,7 +71,14 @@ function PureMessages({
     <div className="relative flex-1 bg-background">
       {messages.length === 0 && !isLoading && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <Greeting />
+          <div className="flex w-full flex-col items-center gap-6">
+            <Greeting name={greetingName} />
+            {suggestions ? (
+              <div className="pointer-events-auto mx-auto w-full max-w-4xl px-2 md:px-4">
+                {suggestions}
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
       <div

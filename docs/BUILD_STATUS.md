@@ -9,6 +9,7 @@ Updated 13 September 2026. The local app runs at http://localhost:3105/ without 
 - PDF/DOCX/TXT/MD/CSV extraction with size, text-length, plan and ownership checks; voice transcription up to 60 seconds.
 - Custom instructions, saved memories, project folders and project instructions.
 - Project navigation: the sidebar's single "Projects" entry opens `/projects`, a grid of gray folders sorted A to Z that show only their names. Each folder's "…" menu renames or deletes it. A folder opens `/project/[id]`, its chat list, and each chat opens the existing `/chat/[id]`. The old `/project/[id]/folder` address redirects to `/project/[id]`. Includes creation timestamps, empty/loading/error states and server-side ownership checks on both the project and chats. No database schema change.
+- Home screen: an empty chat says "Good morning", "Good afternoon" or "Good evening" by the student's clock, with the Settings nickname or the Google first name, and the four suggestions sit right under it. The top-bar sharing lock, the sidebar "Delete all" button, the /purge command and the delete-all-chats API are removed. The usage card left the chat screen; one line with Renew shows only when fewer than 10 messages are left today or the plan ends within three days.
 - Personalized project intelligence: every chat receives the student's profile, custom instructions, only the relevant memories, and, inside a project, its name, instructions, relevant project memories and relevant excerpts from the project's other chats, in the priority order in `docs/SPEC.md` §6. Project memories and chats never reach chats outside their project or another student. Replies match the language of the message (English, Hindi, Hinglish, Gujarati), with an optional saved reply language. `saveMemory` saves to the current project or globally. Settings has a profile section and labels project memories.
 - Malformed stored JSON, such as a message or profile saved as a string, degrades gracefully instead of breaking project chats or Settings.
 - Plan usage and daily cost limits, manual UPI submissions and approval, queued renewals, plan changes, refunds and admin views.
@@ -21,6 +22,7 @@ Every plan uses the owner's FamX UPI account, configured only in `.env.local` (`
 
 ## Verification, 13 September 2026
 
+- Evening, after the Projects folder grid and the home screen changes: 104 unit and database tests and all 35 browser scenarios passed, and TypeScript and Biome are clean for the whole repository. The production build was not re-run for these two changes.
 - 96 unit and database integration tests passed, including checks that project memories and chats never leak across projects or owners, and that malformed stored JSON is tolerated.
 - 29 of 30 browser scenarios passed in a full run. The remaining one, the settings flow, was updated for the new profile form and labels and passed in a focused rerun with the other full-flow tests.
 - Production build passed, including TypeScript and all 37 generated pages.
