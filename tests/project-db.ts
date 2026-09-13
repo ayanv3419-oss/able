@@ -31,6 +31,24 @@ export async function seedProjectNavigation(email: string) {
   }
 }
 
+/** Adds projects in the given order, each one a day newer than the last. */
+export async function seedProjects(email: string, names: string[]) {
+  const sql = connect();
+  try {
+    const [student] = await sql`SELECT id FROM "User" WHERE email = ${email}`;
+    const rows = names.map((name, index) => ({
+      id: randomUUID(),
+      name,
+      updatedAt: new Date(Date.UTC(2026, 8, 1 + index)),
+      userId: student.id as string,
+    }));
+    await sql`INSERT INTO "Project" ${sql(rows, "id", "userId", "name", "updatedAt")}`;
+    return rows.map(({ id, name }) => ({ id, name }));
+  } finally {
+    await sql.end();
+  }
+}
+
 export async function projectChatIds(projectId: string) {
   const sql = connect();
   try {

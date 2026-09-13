@@ -14,8 +14,22 @@ import type { Project } from "@/lib/db/schema";
 import { DeleteProjectDialog } from "./delete-project-dialog";
 import { RenameProjectDialog } from "./rename-project-dialog";
 
-/** The project page's "…" menu with rename and delete. */
-export function ProjectActions({ project }: { project: Project }) {
+/**
+ * The "…" menu with rename and delete. It sits on a project's page and on
+ * each folder in the Projects grid.
+ */
+export function ProjectActions({
+  label = "Project options",
+  project,
+  triggerClassName,
+  variant = "outline",
+}: {
+  /** The button's accessible name. Each grid folder names its project. */
+  label?: string;
+  project: Project;
+  triggerClassName?: string;
+  variant?: "ghost" | "outline";
+}) {
   // Clicks made before hydration would be lost, so wait for the handlers.
   const hydrated = useHydrated();
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
@@ -29,10 +43,11 @@ export function ProjectActions({ project }: { project: Project }) {
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
-            aria-label="Project options"
+            aria-label={label}
+            className={triggerClassName}
             disabled={!hydrated}
             size="icon"
-            variant="outline"
+            variant={variant}
           >
             <MoreHorizontalIcon />
           </Button>

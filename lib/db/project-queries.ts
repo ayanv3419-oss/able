@@ -44,20 +44,6 @@ export async function countProjects(userId: string): Promise<number> {
   return row?.value ?? 0;
 }
 
-/** Counts only chats owned by the same student as their project. */
-export async function listProjectsWithChatCounts(userId: string) {
-  return await db
-    .select({ ...getTableColumns(project), chatCount: sqlCount(chat.id) })
-    .from(project)
-    .leftJoin(
-      chat,
-      and(eq(chat.projectId, project.id), eq(chat.userId, userId))
-    )
-    .where(eq(project.userId, userId))
-    .groupBy(project.id)
-    .orderBy(desc(project.updatedAt));
-}
-
 export async function countChatsInProject({
   projectId,
   userId,

@@ -1,9 +1,31 @@
 // biome-ignore-all lint/performance/noAwaitInLoops: Navigation steps share one browser page and must run in order.
 import { randomUUID } from "node:crypto";
-import { test as anonymousTest } from "@playwright/test";
+import { test as anonymousTest, type Locator } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { generateTestEmail, signInWithTestLogin } from "../helpers";
-import { projectChatIds, seedProjectNavigation } from "../project-db";
+import {
+  projectChatIds,
+  seedProjectNavigation,
+  seedProjects,
+} from "../project-db";
+
+/** How many folders sit on the first row of the Projects grid. */
+async function foldersPerRow(grid: Locator) {
+  const tops = await grid
+    .getByRole("listitem")
+    .evaluateAll((items) =>
+      items.map((item) => Math.round(item.getBoundingClientRect().top))
+    );
+  return tops.filter((top) => top === tops[0]).length;
+}
+
+/** How many lines of text an element shows. */
+async function shownLines(element: Locator) {
+  return await element.evaluate((node) => {
+    const lineHeight = Number.parseFloat(getComputedStyle(node).lineHeight);
+    return Math.round(node.getBoundingClientRect().height / lineHeight);
+  });
+}
 
 test("the sidebar shows one Projects entry that opens the Projects page", async ({
   page,
@@ -22,6 +44,111 @@ test("the sidebar shows one Projects entry that opens the Projects page", async 
   await expect(
     page.getByRole("link", { exact: true, name: `Open project: ${data.name}` })
   ).toBeVisible();
+});
+
+test("the Projects page shows folders A to Z, each with a menu to rename or delete it", async ({
+  page,
+  studentEmail,
+}) => {
+  const longName = "Semester 1 practical files and viva preparation notes";
+  // Oldest first, so the old most-recent-first order would differ from A to Z.
+  await seedProjects(studentEmail, [
+    "Zoology",
+    longName,
+    "Physics",
+    "Maths 10",
+    "Maths 2",
+    "History",
+    "algebra",
+  ]);
+  await page.goto("/projects");
+  await page.mouse.move(0, 0);
+  const grid = page.getByRole("list", { name: "Your projects" });
+  const folders = grid.getByRole("link");
+  await expect(folders).toHaveText([
+    "algebra",
+    "History",
+    "Maths 2",
+    "Maths 10",
+    "Physics",
+    longName,
+    "Zoology",
+  ]);
+  await expect(grid.getByText(/conversation/i)).toHaveCount(0);
+  expect(await foldersPerRow(grid)).toBe(5);
+  const long = grid.getByRole("link", {
+    exact: true,
+    name: `Open project: ${longName}`,
+  });
+  await expect(long).toHaveAttribute("title", longName);
+  expect(await shownLines(long.locator("span"))).toBe(2);
+
+  const zoology = grid.getByRole("listitem").filter({
+    has: page.getByRole("link", { exact: true, name: "Open project: Zoology" }),
+  });
+  const zoologyOptions = zoology.getByRole("button", {
+    exact: true,
+    name: "Options for Zoology",
+  });
+  await expect(zoologyOptions).toBeEnabled();
+  await expect(zoologyOptions).toHaveCSS("opacity", "0");
+  await zoology.hover();
+  await expect(zoologyOptions).toHaveCSS("opacity", "1");
+  await page.screenshot({ path: "test-results/projects-grid-desktop.png" });
+  await zoologyOptions.click();
+  await page
+    .getByRole("menuitem", { exact: true, name: "Rename project" })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByLabel("Name", { exact: true })
+    .fill("Botany");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { exact: true, name: "Save" })
+    .click();
+  await expect(folders).toHaveText([
+    "algebra",
+    "Botany",
+    "History",
+    "Maths 2",
+    "Maths 10",
+    "Physics",
+    longName,
+  ]);
+  await expect(page).toHaveURL("/projects");
+
+  await grid
+    .getByRole("button", { exact: true, name: "Options for algebra" })
+    .click();
+  await page
+    .getByRole("menuitem", { exact: true, name: "Delete project" })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { exact: true, name: "Delete" })
+    .click();
+  await expect(folders).toHaveText([
+    "Botany",
+    "History",
+    "Maths 2",
+    "Maths 10",
+    "Physics",
+    longName,
+  ]);
+  await expect(page).toHaveURL("/projects");
+
+  await page.setViewportSize({ height: 844, width: 390 });
+  expect(await foldersPerRow(grid)).toBe(3);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth
+    )
+  ).toBe(true);
+  await page.screenshot({
+    fullPage: true,
+    path: "test-results/projects-grid-phone.png",
+  });
 });
 
 test("opens Projects, a project's conversations and the existing saved chat", async ({

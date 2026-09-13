@@ -8,7 +8,7 @@ import {
   deleteProject,
   getProject,
   listChatsInProject,
-  listProjectsWithChatCounts,
+  listProjects,
   setChatProject,
   updateProject,
 } from "@/lib/db/project-queries";
@@ -80,12 +80,10 @@ describeDb("project navigation ownership and persistence", () => {
   });
 
   it("lists only owned projects and counts only their owned conversations", async () => {
-    const projects = await listProjectsWithChatCounts(owner);
+    const projects = await listProjects(owner);
     expect(projects.map((item) => item.id).sort()).toEqual(
       [folder, empty].sort()
     );
-    expect(projects.find((item) => item.id === folder)?.chatCount).toBe(2);
-    expect(projects.find((item) => item.id === empty)?.chatCount).toBe(0);
     expect(
       await countChatsInProject({ projectId: folder, userId: owner })
     ).toBe(2);
