@@ -37,7 +37,7 @@ Every plan uses the owner's FamX UPI account, configured only in `.env.local` (`
 
 ## Live deployment, 13 September 2026
 
-Able runs at https://able-alpha.vercel.app on the Vercel project `able`, deployed from this folder with the Vercel CLI. The code is not on GitHub yet.
+Able runs at https://able-alpha.vercel.app on the Vercel project `able`. The code is public at https://github.com/ayanv3419-oss/able, and the Vercel project is connected to that repository, so every push to `main` deploys to production automatically.
 
 - Server functions are set to run in Mumbai (`bom1`), next to the database.
 - The database is a separate Supabase project connected through Vercel Storage (Mumbai, Free plan), which sets `POSTGRES_URL`. The build ran the migrations.
