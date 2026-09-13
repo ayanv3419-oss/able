@@ -1,0 +1,13 @@
+# Keep local secrets, the local database, build caches and test output out of CLI uploads.
+.env
+.env*.local
+.localdb
+.next
+.next-preview
+.next-e2e
+node_modules
+coverage
+test-results
+playwright-report
+blob-report
+.turbo
