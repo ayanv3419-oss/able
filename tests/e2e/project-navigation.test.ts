@@ -5,7 +5,26 @@ import { expect, test } from "../fixtures";
 import { generateTestEmail, signInWithTestLogin } from "../helpers";
 import { projectChatIds, seedProjectNavigation } from "../project-db";
 
-test("opens Projects, project details, folder and the existing saved chat", async ({
+test("the sidebar shows one Projects entry that opens the Projects page", async ({
+  page,
+  studentEmail,
+}) => {
+  const data = await seedProjectNavigation(studentEmail);
+  await page.goto("/");
+  await page.locator('[data-sidebar="rail"]').click();
+  const sidebar = page.locator('[data-sidebar="sidebar"]');
+  await expect(sidebar.getByText(data.name, { exact: true })).toHaveCount(0);
+  await expect(
+    sidebar.getByRole("button", { name: "New project" })
+  ).toHaveCount(0);
+  await sidebar.getByRole("link", { exact: true, name: "Projects" }).click();
+  await expect(page).toHaveURL("/projects");
+  await expect(
+    page.getByRole("link", { exact: true, name: `Open project: ${data.name}` })
+  ).toBeVisible();
+});
+
+test("opens Projects, a project's conversations and the existing saved chat", async ({
   page,
   studentEmail,
 }) => {
@@ -18,19 +37,6 @@ test("opens Projects, project details, folder and the existing saved chat", asyn
   await expect(
     page.getByRole("heading", { exact: true, name: data.name })
   ).toBeVisible();
-  await expect(page.getByLabel("Instructions", { exact: true })).toHaveValue(
-    "Use SI units."
-  );
-  const folder = page.getByRole("link", {
-    exact: true,
-    name: `Open ${data.name} folder`,
-  });
-  await expect(folder).toContainText("1 conversation");
-  await expect(
-    page.getByRole("link", { name: "Open chat: Cell division notes" })
-  ).toHaveCount(0);
-  await folder.click();
-  await expect(page).toHaveURL(`/project/${data.projectId}/folder`);
   await expect(
     page
       .getByRole("list", { name: "Project conversations" })
@@ -41,6 +47,10 @@ test("opens Projects, project details, folder and the existing saved chat", asyn
     "2026-09-10T10:00:00.000Z"
   );
   await expect(page.getByText("Unfiled notes", { exact: true })).toHaveCount(0);
+  await page.getByText("Project instructions", { exact: true }).click();
+  await expect(page.getByLabel("Instructions", { exact: true })).toHaveValue(
+    "Use SI units."
+  );
   await page.screenshot({
     fullPage: true,
     path: "test-results/project-folder-desktop.png",
@@ -55,7 +65,7 @@ test("opens Projects, project details, folder and the existing saved chat", asyn
   expect(await projectChatIds(data.projectId)).toEqual([data.chatId]);
 });
 
-test("shows empty states, creates a chat in the folder and preserves it after project deletion", async ({
+test("shows empty states, creates a chat in the project and preserves it after project deletion", async ({
   page,
 }) => {
   await page.goto("/projects");
@@ -78,7 +88,6 @@ test("shows empty states, creates a chat in the folder and preserves it after pr
   if (!id) {
     throw new Error("Project navigation did not provide an ID");
   }
-  await page.getByRole("link", { name: "Open Revision folder folder" }).click();
   await expect(
     page.getByRole("heading", { name: "No conversations yet" })
   ).toBeVisible();
@@ -93,7 +102,10 @@ test("shows empty states, creates a chat in the folder and preserves it after pr
   expect(await projectChatIds(id)).toEqual([chatId]);
   await page.goto(`/project/${id}`);
   await page
-    .getByRole("button", { exact: true, name: "Rename project" })
+    .getByRole("button", { exact: true, name: "Project options" })
+    .click();
+  await page
+    .getByRole("menuitem", { exact: true, name: "Rename project" })
     .click();
   await page
     .getByRole("dialog")
@@ -107,7 +119,10 @@ test("shows empty states, creates a chat in the folder and preserves it after pr
     page.getByRole("heading", { exact: true, name: "Renamed revision" })
   ).toBeVisible();
   await page
-    .getByRole("button", { exact: true, name: "Delete project" })
+    .getByRole("button", { exact: true, name: "Project options" })
+    .click();
+  await page
+    .getByRole("menuitem", { exact: true, name: "Delete project" })
     .click();
   await page
     .getByRole("alertdialog")
@@ -157,6 +172,7 @@ test("blocks foreign, missing and malformed project URLs without exposing chats"
     await stranger.close();
   }
   await page.goto(`/project/${data.projectId}/folder`);
+  await expect(page).toHaveURL(`/project/${data.projectId}`);
   await expect(
     page.getByRole("link", { name: "Open chat: Cell division notes" })
   ).toBeVisible();
@@ -176,9 +192,6 @@ test("project navigation works on a phone in light and dark themes", async ({
     await page
       .getByRole("link", { exact: true, name: `Open project: ${data.name}` })
       .click();
-    await page
-      .getByRole("link", { exact: true, name: `Open ${data.name} folder` })
-      .click();
     await expect(
       page.getByRole("link", { name: "Open chat: Cell division notes" })
     ).toBeVisible();
@@ -191,9 +204,6 @@ test("project navigation works on a phone in light and dark themes", async ({
       fullPage: true,
       path: `test-results/project-folder-${theme}.png`,
     });
-    await page
-      .getByRole("link", { exact: true, name: "Back to project" })
-      .click();
     await page
       .getByRole("link", { exact: true, name: "Back to projects" })
       .click();
@@ -236,7 +246,7 @@ test("moving and removing a chat refreshes its folder and sidebar menu", async (
     page.getByRole("menuitem", { exact: true, name: "Remove from project" })
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await page.goto(`/project/${data.emptyId}/folder`);
+  await page.goto(`/project/${data.emptyId}`);
   await expect(
     page.getByRole("heading", { name: "No conversations yet" })
   ).toBeVisible();

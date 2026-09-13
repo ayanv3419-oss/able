@@ -150,8 +150,7 @@ test("saves settings and creates a project with persistent instructions", async 
   await expect(page.getByLabel("Reply language", { exact: true })).toHaveValue(
     "Hinglish"
   );
-  await page.goto("/");
-  await page.locator('[data-sidebar="rail"]').click();
+  await page.goto("/projects");
   await page.getByRole("button", { exact: true, name: "New project" }).click();
   await page
     .getByRole("dialog")
@@ -161,8 +160,9 @@ test("saves settings and creates a project with persistent instructions", async 
     .getByRole("button", { exact: true, name: "Create project" })
     .click();
   await page
-    .getByRole("link", { exact: true, name: "Biology revision" })
+    .getByRole("link", { exact: true, name: "Open project: Biology revision" })
     .click();
+  await page.getByText("Project instructions", { exact: true }).click();
   await page.getByLabel("Instructions", { exact: true }).fill("Use SI units.");
   await Promise.all([
     page.waitForResponse(
@@ -173,6 +173,7 @@ test("saves settings and creates a project with persistent instructions", async 
     page.getByRole("button", { name: "Save instructions" }).click(),
   ]);
   await page.reload();
+  await page.getByText("Project instructions", { exact: true }).click();
   await expect(page.getByLabel("Instructions", { exact: true })).toHaveValue(
     "Use SI units."
   );

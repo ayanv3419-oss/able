@@ -17,7 +17,7 @@ import type { Project } from "@/lib/db/schema";
 import { PROJECTS_SWR_KEY } from "./use-projects-list";
 
 /**
- * Mounted only while a project is being renamed (see ProjectsNav), so each
+ * Mounted only while a project is being renamed (see ProjectActions), so each
  * instance starts fresh for its target project.
  */
 export function RenameProjectDialog({
