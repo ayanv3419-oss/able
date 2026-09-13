@@ -35,11 +35,21 @@ Every plan uses the owner's FamX UPI account, configured only in `.env.local` (`
 - Live memory save was verified in chat, the database and Settings, then deleted through Settings.
 - The complete payment approval and refund lifecycle was tested, with access revoked after refunding. The three payment pages' QR codes decoded to the configured account with amounts of ₹250, ₹800 and ₹1,200.
 
-## Before a public launch
+## Live deployment, 13 September 2026
 
-- Configure hosted Postgres, the deployment URL, production Google OAuth and the owner's admin email.
-- Configure the FamX account in the production environment, confirm support/contact details, and review the legal-page placeholders.
+Able runs at https://able-alpha.vercel.app on the Vercel project `able`, deployed from this folder with the Vercel CLI. The code is not on GitHub yet.
+
+- Server functions are set to run in Mumbai (`bom1`), next to the database.
+- The database is a separate Supabase project connected through Vercel Storage (Mumbai, Free plan), which sets `POSTGRES_URL`. The build ran the migrations.
+- Google sign-in uses Able's own Google Cloud project with the app name "Able", published for any Google account.
+- Production has fresh `AUTH_SECRET` and `CRON_SECRET` values, the owner's admin, UPI and support settings, `NEXT_PUBLIC_APP_URL`, and the Google keys.
+- A check without logging in confirmed that the Google button uses Able's key and returns to the live site, the legal pages load, and the cron route rejects requests without its secret.
+
+## Before selling
+
+- Replace the Groq API key, because the current one was pasted into a Codex chat, and confirm the Groq limits for expected traffic.
+- Move Vercel to Pro, because the Hobby plan is non-commercial, and Supabase to Pro so the database never pauses.
+- Review the legal-page placeholders and confirm the support and contact details.
 - Configure a verified email sender and Resend key if email notifications are wanted.
-- Set the production cron secret, confirm the Groq account limits for expected traffic, and create a fresh Groq API key for production.
 
-No code has been pushed or deployed. The owner can use the local app now.
+The owner can also keep using the local app at http://localhost:3105/.
