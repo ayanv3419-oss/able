@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { normalizeUtr } from "@/lib/billing/rules";
 import type { PlanId } from "@/lib/plans";
@@ -27,7 +26,6 @@ export function UtrForm({ planId }: { planId: PlanId }) {
   const router = useRouter();
   const hydrated = useHydrated();
   const [utr, setUtr] = useState("");
-  const [studentNote, setStudentNote] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -45,13 +43,6 @@ export function UtrForm({ planId }: { planId: PlanId }) {
 
       const result = normalizeUtr(value);
       setFieldError(result.ok ? null : result.error);
-    },
-    []
-  );
-
-  const handleStudentNoteChange = useCallback(
-    (event: ChangeEvent<HTMLTextAreaElement>) => {
-      setStudentNote(event.target.value);
     },
     []
   );
@@ -74,7 +65,6 @@ export function UtrForm({ planId }: { planId: PlanId }) {
           const response = await fetch("/api/payments", {
             body: JSON.stringify({
               planId,
-              studentNote: studentNote.trim() ? studentNote.trim() : undefined,
               utr: result.utr,
             }),
             headers: { "Content-Type": "application/json" },
@@ -100,7 +90,7 @@ export function UtrForm({ planId }: { planId: PlanId }) {
         }
       });
     },
-    [planId, utr, studentNote, router]
+    [planId, utr, router]
   );
 
   return (
@@ -126,18 +116,6 @@ export function UtrForm({ planId }: { planId: PlanId }) {
             letters or digits.
           </p>
         )}
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="student-note">Note for the owner (optional)</Label>
-        <Textarea
-          disabled={!hydrated}
-          id="student-note"
-          maxLength={500}
-          onChange={handleStudentNoteChange}
-          placeholder="Anything the owner should know about this payment"
-          value={studentNote}
-        />
       </div>
 
       {formError ? (

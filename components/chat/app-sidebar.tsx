@@ -25,7 +25,13 @@ import {
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
-export function AppSidebar({ user }: { user: User | undefined }) {
+export function AppSidebar({
+  user,
+  isAdmin = false,
+}: {
+  user: User | undefined;
+  isAdmin?: boolean;
+}) {
   const router = useRouter();
   const { setOpenMobile, toggleSidebar } = useSidebar();
 
@@ -98,7 +104,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
         <SidebarHistory user={user} />
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border pt-2 pb-3">
-        {user ? <SidebarUserNav user={user} /> : null}
+        {user ? <SidebarUserNav isAdmin={isAdmin} user={user} /> : null}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

@@ -5,11 +5,8 @@ import { createPayment } from "@/lib/db/billing-queries";
 import { ChatbotError } from "@/lib/errors";
 import { getPlan, isPlanId } from "@/lib/plans";
 
-const MAX_STUDENT_NOTE_LENGTH = 500;
-
 const bodySchema = z.object({
   planId: z.string(),
-  studentNote: z.string().max(MAX_STUDENT_NOTE_LENGTH).optional(),
   utr: z.string(),
 });
 
@@ -52,7 +49,6 @@ export async function POST(request: Request) {
     const created = await createPayment({
       amountInr: plan.priceInr,
       planId: plan.id,
-      studentNote: body.studentNote?.trim() ? body.studentNote.trim() : null,
       userId: session.user.id,
       utr: normalized.utr,
     });

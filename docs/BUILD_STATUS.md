@@ -1,5 +1,13 @@
 # Local v1 build status
 
+## Payment approval update, 14 September 2026
+
+- Built on `feat/approve-gate` in `D:\able-wt\approve-gate`. The isolated, no-login demo runs at http://localhost:3107/admin/payments with synthetic sample payments.
+- The admin menu shows the exact pending count. Payment reviews use cards on phones and a table on desktop, with the resulting plan dates and any lost paid days shown before one-tap approval or rejection.
+- Rejections show a fixed retry/support message. Rejected UTRs can be submitted again, while pending, approved and refunded references remain protected by a database unique index. The submitted plan is authoritative and the optional student note is removed.
+- Verified: 111 unit/database tests, both focused browser scenarios (approval/resubmission/access controls and the existing payment/refund flow), TypeScript and repository lint. Phone and desktop screenshots were inspected. Cold compilation required a longer local browser-test timeout.
+- The owner authorized production publication on 14 September. Migration `0005_approve_gate` runs through the existing production build command; it preserves payment history.
+
 Updated 13 September 2026. The local app runs at http://localhost:3105/ without Google sign-in. Keep this server running until the owner asks to stop it.
 
 ## Implemented

@@ -6,6 +6,7 @@ import type { User } from "next-auth";
 import { signOut, useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { useCallback } from "react";
+import useSWR from "swr";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { fetcher } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
 import { toast } from "./toast";
 
@@ -29,9 +31,27 @@ function emailToHue(email: string): number {
   return Math.abs(hash) % 360;
 }
 
-export function SidebarUserNav({ user }: { user: User }) {
+export function SidebarUserNav({
+  user,
+  isAdmin = false,
+}: {
+  user: User;
+  isAdmin?: boolean;
+}) {
   const { data: session, status } = useSession();
   const { setTheme, resolvedTheme } = useTheme();
+  const { data: pending, mutate: refreshCount } = useSWR<{ count: number }>(
+    isAdmin ? "/api/admin/payments/count" : null,
+    fetcher
+  );
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (open && isAdmin) {
+        refreshCount();
+      }
+    },
+    [isAdmin, refreshCount]
+  );
 
   const handleThemeSelect = useCallback(() => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
@@ -53,7 +73,7 @@ export function SidebarUserNav({ user }: { user: User }) {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={handleOpenChange}>
           <DropdownMenuTrigger asChild>
             {status === "loading" ? (
               <SidebarMenuButton className="h-10 justify-between rounded-lg bg-transparent text-sidebar-foreground/50 transition-colors duration-150 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
@@ -101,6 +121,13 @@ export function SidebarUserNav({ user }: { user: User }) {
               <Link href="/billing">Plan &amp; payments</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            {isAdmin ? (
+              <DropdownMenuItem asChild>
+                <Link href="/admin/payments">
+                  Admin{pending ? ` · ${pending.count}` : ""}
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem
               className="cursor-pointer text-[13px]"
               data-testid="user-nav-item-theme"

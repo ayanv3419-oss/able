@@ -6,6 +6,7 @@ import { DataStreamProvider } from "@/components/chat/data-stream-provider";
 import { ChatShell } from "@/components/chat/shell";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ActiveChatProvider } from "@/hooks/use-active-chat";
+import { isAdminEmail } from "@/lib/admin";
 import { getUserSettings } from "@/lib/db/personalization-queries";
 import { greetingName } from "@/lib/greeting";
 import { auth } from "../(auth)/auth";
@@ -39,7 +40,10 @@ async function SidebarShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider defaultOpen={!isCollapsed}>
-      <AppSidebar user={session?.user} />
+      <AppSidebar
+        isAdmin={isAdminEmail(session?.user?.email)}
+        user={session?.user}
+      />
       <SidebarInset>
         <Suspense fallback={<div className="flex h-dvh" />}>
           <ActiveChatProvider>

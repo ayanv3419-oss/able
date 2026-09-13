@@ -3,7 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { listPayments } from "@/lib/db/billing-queries";
+import { countPendingPayments } from "@/lib/db/billing-queries";
 import { sumCostBetween } from "@/lib/db/usage-queries";
 import { INR_PER_USD, istDayStart } from "@/lib/metering";
 import { Section } from "./_components/section";
@@ -14,9 +14,6 @@ export const metadata: Metadata = {
 };
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-// listPayments has no dedicated count, so the pending queue is read in full
-// (capped generously) and counted here. Fine at this app's scale.
-const PENDING_COUNT_CAP = 1000;
 
 export default async function AdminDashboardPage() {
   // These numbers must reflect the live database on every load, never a
@@ -29,7 +26,7 @@ export default async function AdminDashboardPage() {
   const thirtyDaysAgo = new Date(now.getTime() - THIRTY_DAYS_MS);
 
   const [pendingPayments, todayCost, last30DaysCost] = await Promise.all([
-    listPayments({ limit: PENDING_COUNT_CAP, status: "pending" }),
+    countPendingPayments(),
     sumCostBetween({ from: todayStart, to: now }),
     sumCostBetween({ from: thirtyDaysAgo, to: now }),
   ]);
@@ -45,7 +42,7 @@ export default async function AdminDashboardPage() {
               </Button>
             }
             label="Pending payments"
-            value={String(pendingPayments.length)}
+            value={String(pendingPayments)}
           />
           <StatCard
             footer={`${formatInrFromMicros(todayCost.costMicros, INR_PER_USD)} · ${todayCost.events} usage events`}

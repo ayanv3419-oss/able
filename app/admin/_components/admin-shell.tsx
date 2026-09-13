@@ -23,9 +23,11 @@ export async function AdminShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh flex-col bg-background">
       <header className="border-border/60 border-b">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-3">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
             <span className="font-semibold">Able admin</span>
-            <span className="text-muted-foreground text-xs">{email}</span>
+            <span className="wrap-anywhere text-muted-foreground text-xs">
+              {email}
+            </span>
           </div>
           <AdminNav />
         </div>

@@ -205,9 +205,12 @@ export const payment = pgTable(
     status: paymentStatusEnum("status").notNull().default("pending"),
     studentNote: text("studentNote"),
     userId: uuid("userId").references(() => user.id, { onDelete: "set null" }),
-    utr: varchar("utr", { length: 32 }).notNull().unique(),
+    utr: varchar("utr", { length: 32 }).notNull(),
   },
   (table) => [
+    uniqueIndex("Payment_unrejected_utr_unique")
+      .on(table.utr)
+      .where(sql`${table.status} <> 'rejected'`),
     uniqueIndex("Payment_one_pending_per_user")
       .on(table.userId)
       .where(sql`${table.status} = 'pending'`),

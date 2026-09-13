@@ -1,8 +1,19 @@
 import "server-only";
 
-import { and, desc, eq, gt, isNull, lte, type SQL } from "drizzle-orm";
 import {
-  computeApproval,
+  and,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  lte,
+  type SQL,
+} from "drizzle-orm";
+import {
+  type CurrentSubscription,
+  computeApprovalForPeriods,
   isRefundEligible,
   RENEW_BANNER_DAYS,
 } from "../billing/rules";
@@ -59,7 +70,7 @@ export type ReminderDue = {
 
 /**
  * Records a payment a student says they made. A student may have only one
- * pending payment, and a UPI reference may be submitted only once.
+ * pending payment. A UPI reference can be reused only after rejection.
  */
 export async function createPayment({
   amountInr,
@@ -162,6 +173,53 @@ export async function listPayments({
   return rows.map(({ row, userEmail }) => ({ ...row, userEmail }));
 }
 
+export async function countPendingPayments(): Promise<number> {
+  const [row] = await db
+    .select({ count: count() })
+    .from(payment)
+    .where(eq(payment.status, "pending"));
+  return row.count;
+}
+
+/** Batch-load subscription context instead of one query for every queue row. */
+export async function listPendingPaymentsWithApproval(
+  now: Date,
+  limit: number
+) {
+  const pending = await listPayments({ limit, status: "pending" });
+  const userIds = pending.flatMap((row) => (row.userId ? [row.userId] : []));
+  const periods = userIds.length
+    ? await db
+        .select()
+        .from(subscription)
+        .where(
+          and(
+            inArray(subscription.userId, userIds),
+            eq(subscription.status, "active"),
+            gt(subscription.endsAt, now)
+          )
+        )
+    : [];
+  const byUser = new Map<string, CurrentSubscription[]>();
+  for (const period of periods) {
+    const existing = byUser.get(period.userId) ?? [];
+    existing.push(period);
+    byUser.set(period.userId, existing);
+  }
+  return pending.map((row) => ({
+    ...row,
+    approval: computeApprovalForPeriods({
+      now,
+      periods: byUser.get(row.userId ?? "") ?? [],
+      planId: row.planId,
+    }),
+  }));
+}
+
+export type PendingPaymentWithApproval = Awaited<
+  ReturnType<typeof listPendingPaymentsWithApproval>
+>[number];
+
 /**
  * Approves a pending payment and starts its period, per docs/SPEC.md §7.
  * Renewing the same plan extends it; a different plan supersedes the old one.
@@ -219,22 +277,13 @@ export async function approvePayment({
       )
       .orderBy(desc(subscription.endsAt));
 
-    const changingPlan = unexpired.some(
-      (period) => period.planId !== existing.planId
-    );
-    const current = changingPlan
-      ? unexpired.find((period) => period.planId !== existing.planId)
-      : unexpired[0];
-
-    const approval = computeApproval({
-      current: current
-        ? { endsAt: current.endsAt, id: current.id, planId: current.planId }
-        : null,
+    const approval = computeApprovalForPeriods({
       now,
+      periods: unexpired,
       planId: existing.planId,
     });
 
-    if (changingPlan) {
+    if (approval.supersedeId) {
       await tx
         .update(subscription)
         .set({ status: "superseded" })

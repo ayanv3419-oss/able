@@ -1,0 +1,2 @@
+ALTER TABLE "Payment" DROP CONSTRAINT "Payment_utr_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "Payment_unrejected_utr_unique" ON "Payment" USING btree ("utr") WHERE "Payment"."status" <> 'rejected';

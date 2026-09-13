@@ -14,6 +14,9 @@ export const REFUND_WINDOW_DAYS = 7;
 /** The renew banner and the reminder email start this many days before the end. */
 export const RENEW_BANNER_DAYS = 3;
 
+export const PAYMENT_REJECTION_MESSAGE =
+  "Please check your UTR and submit it again for the plan you paid for, or contact support.";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const UTR_MIN_LENGTH = 10;
 const UTR_MAX_LENGTH = 24;
@@ -106,6 +109,26 @@ export function computeApproval({
     startsAt: now,
     supersedeId: current?.id ?? null,
   };
+}
+
+/** Includes queued renewals, using the same context for preview and approval. */
+export function computeApprovalForPeriods({
+  periods,
+  now,
+  planId,
+}: {
+  periods: CurrentSubscription[];
+  now: Date;
+  planId: PlanId;
+}) {
+  const unexpired = periods
+    .filter((period) => period.endsAt > now)
+    .toSorted((a, b) => b.endsAt.getTime() - a.endsAt.getTime());
+  const current =
+    unexpired.find((period) => period.planId !== planId) ??
+    unexpired[0] ??
+    null;
+  return { ...computeApproval({ current, now, planId }), current };
 }
 
 export type RefundEligibility = {
