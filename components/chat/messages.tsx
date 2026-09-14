@@ -70,11 +70,11 @@ function PureMessages({
   return (
     <div className="relative flex-1 bg-background">
       {messages.length === 0 && !isLoading && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <div className="flex w-full flex-col items-center gap-6">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-3 pb-8 sm:px-4 md:pb-0">
+          <div className="flex w-full flex-col items-center gap-5 sm:gap-6">
             <Greeting name={greetingName} />
             {suggestions ? (
-              <div className="pointer-events-auto mx-auto w-full max-w-4xl px-2 md:px-4">
+              <div className="pointer-events-auto mx-auto w-full max-w-4xl">
                 {suggestions}
               </div>
             ) : null}

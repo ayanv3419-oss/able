@@ -93,7 +93,7 @@ function PureMultimodalInput({
   const { width } = useWindowSize();
   const hasAutoFocused = useRef(false);
   useEffect(() => {
-    if (!hasAutoFocused.current && width) {
+    if (!hasAutoFocused.current && width >= 768) {
       const timer = setTimeout(() => {
         textareaRef.current?.focus();
         hasAutoFocused.current = true;
@@ -460,7 +460,7 @@ function PureMultimodalInput({
       </div>
 
       <PromptInput
-        className="[&>div]:rounded-2xl [&>div]:border [&>div]:border-border/30 [&>div]:bg-card/70 [&>div]:shadow-[var(--shadow-composer)] [&>div]:transition-shadow [&>div]:duration-300 [&>div]:focus-within:shadow-[var(--shadow-composer-focus)]"
+        className="[&>div]:rounded-[22px] [&>div]:border [&>div]:border-border/50 [&>div]:bg-card/95 [&>div]:shadow-[var(--shadow-composer)] [&>div]:backdrop-blur-xl [&>div]:transition-shadow [&>div]:duration-300 [&>div]:focus-within:shadow-[var(--shadow-composer-focus)]"
         onSubmit={handlePromptSubmit}
       >
         {(attachments.length > 0 || uploadQueue.length > 0) && (
@@ -491,7 +491,7 @@ function PureMultimodalInput({
           </div>
         )}
         <PromptInputTextarea
-          className="min-h-24 text-[13px] leading-relaxed px-4 pt-3.5 pb-1.5 placeholder:text-muted-foreground/35"
+          className="min-h-[68px] px-4 pt-4 pb-1 text-base leading-relaxed placeholder:text-muted-foreground/35 md:min-h-24 md:pt-3.5 md:pb-1.5 md:text-[13px]"
           data-testid="multimodal-input"
           onChange={handleInput}
           onKeyDown={handleTextareaKeyDown}
@@ -501,7 +501,7 @@ function PureMultimodalInput({
           ref={textareaRef}
           value={input}
         />
-        <PromptInputFooter className="px-3 pb-3">
+        <PromptInputFooter className="px-2.5 pb-2.5 sm:px-3 sm:pb-3">
           <PromptInputTools>
             <AttachmentsButton fileInputRef={fileInputRef} status={status} />
             <Button

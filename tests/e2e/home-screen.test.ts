@@ -54,6 +54,55 @@ test("an empty chat greets the student by name with the suggestions right under 
   ).toBeVisible();
 });
 
+test("the phone home screen uses a two-by-two prompt grid and a full-height side drawer", async ({
+  page,
+}) => {
+  await page.setViewportSize({ height: 844, width: 390 });
+  await page.goto("/");
+
+  const input = page.getByTestId("multimodal-input");
+  await expect(input).toBeVisible();
+  await expect(input).not.toBeFocused();
+
+  const promptButtons = page
+    .getByTestId("suggested-actions")
+    .getByRole("button");
+  await expect(promptButtons).toHaveCount(4);
+  await page.waitForTimeout(700);
+  const promptBoxes = await promptButtons.evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const box = button.getBoundingClientRect();
+      return { left: Math.round(box.left), top: Math.round(box.top) };
+    })
+  );
+  expect(promptBoxes[0]?.top).toBe(promptBoxes[1]?.top);
+  expect(promptBoxes[2]?.top).toBe(promptBoxes[3]?.top);
+  expect(promptBoxes[2]?.top).toBeGreaterThan(promptBoxes[0]?.top ?? 0);
+  expect(promptBoxes[0]?.left).toBeLessThan(promptBoxes[1]?.left ?? 0);
+  expect(promptBoxes[2]?.left).toBeLessThan(promptBoxes[3]?.left ?? 0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth
+    )
+  ).toBe(true);
+
+  await page.screenshot({ path: "test-results/home-screen-phone.png" });
+
+  await page.getByRole("button", { name: "Open sidebar" }).click();
+  const sidebar = page.locator('[data-sidebar="sidebar"][data-mobile="true"]');
+  await expect(sidebar).toBeVisible();
+  const sidebarBox = await sidebar.boundingBox();
+  if (!sidebarBox) {
+    throw new Error("The mobile sidebar is not laid out");
+  }
+  expect(sidebarBox.x).toBe(0);
+  expect(sidebarBox.y).toBe(0);
+  expect(sidebarBox.width).toBeLessThan(page.viewportSize()?.width ?? 390);
+  expect(sidebarBox.height).toBeGreaterThanOrEqual(840);
+
+  await page.screenshot({ path: "test-results/mobile-sidebar.png" });
+});
+
 test("the chat screen has no sharing lock, no delete-all and no usage card on a normal day", async ({
   page,
 }) => {
