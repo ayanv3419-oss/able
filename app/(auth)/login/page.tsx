@@ -6,6 +6,7 @@ import { isLocalPreview } from "@/lib/constants";
 import { signInWithGoogle } from "../actions";
 
 const legalLinks = [
+  { href: "/download", label: "Download" },
   { href: "/terms", label: "Terms" },
   { href: "/privacy", label: "Privacy" },
   { href: "/refunds", label: "Refunds" },

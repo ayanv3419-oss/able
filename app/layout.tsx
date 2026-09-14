@@ -11,8 +11,14 @@ const DESCRIPTION = "Ask Able anything. A fast AI assistant for students.";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 
 export const metadata: Metadata = {
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Able",
+  },
   applicationName: "Able",
   description: DESCRIPTION,
+  manifest: "/manifest.webmanifest",
   // Falls back to the deployment URL when NEXT_PUBLIC_APP_URL is unset.
   metadataBase: APP_URL && URL.canParse(APP_URL) ? new URL(APP_URL) : undefined,
   openGraph: {

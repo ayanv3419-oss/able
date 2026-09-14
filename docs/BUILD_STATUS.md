@@ -1,5 +1,12 @@
 # Local v1 build status
 
+## Installable Able app, 15 September 2026
+
+- Added a complete public `/download` page with a responsive product overview, platform-specific installation help, FAQs and install calls to action.
+- Able is now an installable web app on Windows, macOS, Android, iPhone and iPad. It uses a web manifest, generated app icons and a safe service worker that does not cache private chats or API responses.
+- Added entry points from sign-in and the account menu. Able still requires the internet because authentication, AI responses and chat syncing run through its cloud services.
+- Verified with repository lint, TypeScript, a production build, four focused unit tests and two Chromium browser tests, including a 390px phone layout with no horizontal overflow.
+
 ## Payment workflow update, 15 September 2026
 
 - Follows the owner's board: plan page, UPI payment, a Request button with no reference number, then the owner allows or rejects. Rejecting blocks the student until the owner unblocks them on the Requests page or the student's detail page.

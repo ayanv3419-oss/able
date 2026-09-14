@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, Download } from "lucide-react";
 import Link from "next/link";
 import type { User } from "next-auth";
 import { signOut, useSession } from "next-auth/react";
@@ -114,6 +114,12 @@ export function SidebarUserNav({
             data-testid="user-nav-menu"
             side="top"
           >
+            <DropdownMenuItem asChild>
+              <Link href="/download">
+                <Download className="mr-2 size-4" />
+                Install Able
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/settings">Settings</Link>
             </DropdownMenuItem>
