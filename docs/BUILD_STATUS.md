@@ -8,10 +8,14 @@
 - Verified: 111 unit/database tests, both focused browser scenarios (approval/resubmission/access controls and the existing payment/refund flow), TypeScript and repository lint. Phone and desktop screenshots were inspected. Cold compilation required a longer local browser-test timeout.
 - The owner authorized production publication on 14 September. Migration `0005_approve_gate` runs through the existing production build command; it preserves payment history.
 
-Updated 13 September 2026. The local app runs at http://localhost:3105/ without Google sign-in. Keep this server running until the owner asks to stop it.
+Updated 14 September 2026. The local app runs at http://localhost:3105/ without Google sign-in. Keep this server running until the owner asks to stop it.
 
 ## Implemented
 
+- PDF exports: completed answers have **Save as PDF** and text documents have **Download PDF**. Playwright/Chromium produces selectable A4 PDFs with tables, code, KaTeX maths, Mermaid diagrams and English/Hindi/Gujarati fonts. Document previews can be opened by keyboard. The document tool can preserve full supplied content instead of regenerating from only a title.
+- Deep research: Plus runs two evidence passes (3 reports/day), Pro four (10/day), then Groq writes a report with persisted source links. Verified bracketed URL citations are converted to clickable Markdown without interrupting streaming. Search/model usage is metered; failed or cancelled reports release the report reservation.
+- PDF limits (Basic 5, Plus 20, Pro 50/day), research limits and upload insertion use transactional reservations/locks. Source ownership and active plans are checked on the server. Migration `0005_feature_runs` is applied to the local preview and isolated test databases. Limits and rendering setup are documented in `SPEC.md` section 13 and the README.
+- Pricing copy now exposes the built PDF/research features; only the assistant system remains marked Coming soon. Pro's folder-cap message no longer asks users to upgrade beyond Pro.
 - Live Groq chat, streaming, stop, edit and regenerate; persisted conversations.
 - Web-search toggle, persisted source links, and actual search usage accounting. The Groq raw `executed_tools` stream adapter covers the field omitted by the installed provider.
 - PDF/DOCX/TXT/MD/CSV extraction with size, text-length, plan and ownership checks; voice transcription up to 60 seconds.
@@ -28,7 +32,15 @@ Updated 13 September 2026. The local app runs at http://localhost:3105/ without 
 
 Every plan uses the owner's FamX UPI account, configured only in `.env.local` (`UPI_ID`) and verified against the supplied QR code. QR codes and mobile payment links prefill the plan amount; submitted references still need manual approval. Local payment configuration is read from `.env.local` without restarting the server. Production authentication remains enabled; the no-login workspace is limited to development mode.
 
-## Verification, 13 September 2026
+## Verification, 14 September 2026
+
+- All 42 browser scenarios passed in one run, including both real PDF downloads, saved research sources and usage, plan/ownership limits, concurrent uploads, normal chat, editing/regeneration, projects, payments and refunds. Downloaded PDFs were also parsed to verify their text; a sample with maths, diagrams and Hindi/Gujarati was visually inspected.
+- The full unit/database run passed 117 tests; the subsequent citation-stream test also passed, covering URLs split between chunks and unverified citations.
+- The production build and TypeScript passed. Biome passed across the repository and on the final changed code. The PDF function trace contains Chromium, Mermaid, KaTeX and all three embedded language fonts, with no missing files (about 127 MB of unique files; repeated symlink paths are counted once).
+- A live Groq research check collected 18 source URLs through three searches and produced a report. Its bracketed citation format prompted the streaming normalization fix. The repeat live check was blocked by the account's 200,000-token daily quota; no further live requests were made.
+- These changes are local on `codex/finish-able`; they have not been pushed or deployed. The assistant-system feature remains future work.
+
+## Earlier verification, 13 September 2026
 
 - Evening, after the Projects folder grid and the home screen changes: 104 unit and database tests and all 35 browser scenarios passed, and TypeScript and Biome are clean for the whole repository. The production build was not re-run for these two changes.
 - 96 unit and database integration tests passed, including checks that project memories and chats never leak across projects or owners, and that malformed stored JSON is tolerated.

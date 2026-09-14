@@ -26,6 +26,15 @@ export type Plan = {
   displayUnlimited: boolean;
   /** Project folders allowed, or null for unlimited. */
   projectFolderLimit: number | null;
+  /** Files a student may upload per India day, or null for no daily cap. */
+  dailyUploads: number | null;
+  /**
+   * Saved memories, and past-chat excerpts inside a project, that each answer
+   * may draw on. Higher plans understand the student better per answer.
+   */
+  contextMemories: number;
+  /** Successful PDF downloads per India day. */
+  dailyPdfs: number;
 };
 
 /** Every plan runs for 30 days from approval. */
@@ -33,7 +42,10 @@ export const PLAN_DAYS = 30;
 
 export const PLANS: Record<PlanId, Plan> = {
   basic: {
+    contextMemories: 3,
     dailyMessages: 40,
+    dailyPdfs: 5,
+    dailyUploads: 5,
     displayUnlimited: false,
     id: "basic",
     name: "Basic",
@@ -43,7 +55,10 @@ export const PLANS: Record<PlanId, Plan> = {
     reasoningEffort: "low",
   },
   plus: {
+    contextMemories: 6,
     dailyMessages: 100,
+    dailyPdfs: 20,
+    dailyUploads: 20,
     displayUnlimited: false,
     id: "plus",
     name: "Plus",
@@ -53,13 +68,16 @@ export const PLANS: Record<PlanId, Plan> = {
     reasoningEffort: "medium",
   },
   pro: {
+    contextMemories: 10,
     dailyMessages: 150,
+    dailyPdfs: 50,
+    dailyUploads: null,
     displayUnlimited: true,
     id: "pro",
     name: "Pro",
     priceInr: 1200,
     priceUsdDisplay: "$12.99",
-    projectFolderLimit: null,
+    projectFolderLimit: 40,
     reasoningEffort: "high",
   },
 };

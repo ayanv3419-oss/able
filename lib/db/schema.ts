@@ -333,3 +333,26 @@ export const attachment = pgTable("Attachment", {
 });
 
 export type Attachment = InferSelectModel<typeof attachment>;
+
+/** Reservations make expensive feature limits safe across server instances. */
+export const featureRun = pgTable(
+  "FeatureRun",
+  {
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: varchar("kind", { enum: ["pdf", "research"] }).notNull(),
+    status: varchar("status", { enum: ["pending", "completed", "failed"] })
+      .notNull()
+      .default("pending"),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("FeatureRun_user_kind_created_idx").on(
+      table.userId,
+      table.kind,
+      table.createdAt
+    ),
+  ]
+);

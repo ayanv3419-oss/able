@@ -1,3 +1,4 @@
+import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { Artifact } from "@/components/chat/create-artifact";
 import { DiffView } from "@/components/chat/diffview";
@@ -12,6 +13,7 @@ import {
 } from "@/components/chat/icons";
 import { Editor } from "@/components/chat/text-editor";
 import type { Suggestion } from "@/lib/db/schema";
+import { downloadPdf } from "@/lib/pdf/download";
 import { getSuggestions } from "../actions";
 
 type TextArtifactMetadata = {
@@ -20,6 +22,13 @@ type TextArtifactMetadata = {
 
 export const textArtifact = new Artifact<"text", TextArtifactMetadata>({
   actions: [
+    {
+      description: "Download PDF",
+      icon: <Download size={18} />,
+      isDisabled: ({ content }) => !content.trim(),
+      onClick: ({ content, documentId }) =>
+        downloadPdf({ content, id: documentId, kind: "document" }),
+    },
     {
       description: "View changes",
       icon: <ClockRewind size={18} />,

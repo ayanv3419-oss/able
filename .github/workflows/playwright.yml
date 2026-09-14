@@ -33,8 +33,8 @@ jobs:
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm check
-      - run: corepack pnpm test:db
       - run: corepack pnpm exec playwright install --with-deps chromium
+      - run: corepack pnpm test:db
       - run: corepack pnpm test
       - run: node scripts/test.mjs build
       - uses: actions/upload-artifact@v4

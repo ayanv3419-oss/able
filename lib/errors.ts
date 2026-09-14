@@ -19,6 +19,7 @@ export type Surface =
   | "payment"
   | "refund"
   | "project"
+  | "research"
   | "plan";
 
 export type ErrorCode = `${ErrorType}:${Surface}`;
@@ -36,6 +37,7 @@ export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
   plan: "response",
   project: "response",
   refund: "response",
+  research: "response",
   stream: "response",
   suggestions: "response",
   vote: "response",
@@ -101,6 +103,10 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
 
     case "rate_limit:chat":
       return "You've reached today's message allowance. It resets at midnight India time.";
+    case "rate_limit:research":
+      return "You've reached today's research allowance. It resets at midnight India time.";
+    case "forbidden:research":
+      return "Deep research is available on Plus and Pro.";
     case "not_found:chat":
       return "The requested chat was not found. Please check the chat ID and try again.";
     case "forbidden:chat":

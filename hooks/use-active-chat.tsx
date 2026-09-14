@@ -45,6 +45,8 @@ type ActiveChatContextValue = {
   votes: Vote[] | undefined;
   webSearch: boolean;
   setWebSearch: Dispatch<SetStateAction<boolean>>;
+  deepResearch: boolean;
+  setDeepResearch: Dispatch<SetStateAction<boolean>>;
 };
 
 const ActiveChatContext = createContext<ActiveChatContextValue | null>(null);
@@ -73,6 +75,9 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
 
   const [input, setInput] = useState("");
   const [webSearch, setWebSearch] = useState(false);
+  const [deepResearch, setDeepResearch] = useState(false);
+  const deepResearchRef = useRef(deepResearch);
+  deepResearchRef.current = deepResearch;
   const webSearchRef = useRef(webSearch);
   webSearchRef.current = webSearch;
 
@@ -114,7 +119,13 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     onError: (error) => {
       mutate(ENTITLEMENT_URL);
       if (error instanceof ChatbotError) {
-        toast({ description: error.message, type: "error" });
+        toast({
+          description:
+            error.surface === "research" && typeof error.cause === "string"
+              ? error.cause
+              : error.message,
+          type: "error",
+        });
       } else {
         toast({
           description: error.message || "Oops, an error occurred!",
@@ -157,6 +168,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
             ...(isToolApprovalContinuation
               ? { messages: request.messages }
               : { message: lastMessage }),
+            deepResearch: deepResearchRef.current,
             selectedVisibilityType: visibility,
             webSearch: webSearchRef.current,
             ...request.body,
@@ -237,12 +249,14 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     () => ({
       addToolApprovalResponse,
       chatId,
+      deepResearch,
       input,
       isLoading: !isNewChat && isLoading,
       isReadonly,
       messages,
       regenerate,
       sendMessage,
+      setDeepResearch,
       setInput,
       setMessages,
       setWebSearch,
@@ -268,6 +282,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       isLoading,
       votes,
       webSearch,
+      deepResearch,
     ]
   );
 

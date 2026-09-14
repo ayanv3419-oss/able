@@ -1,10 +1,11 @@
 import equal from "fast-deep-equal";
-import { RotateCcw } from "lucide-react";
-import { memo, useCallback } from "react";
+import { Download, Loader2, RotateCcw } from "lucide-react";
+import { memo, useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { useCopyToClipboard } from "usehooks-ts";
 import type { Vote } from "@/lib/db/schema";
+import { downloadPdf } from "@/lib/pdf/download";
 import type { ChatMessage } from "@/lib/types";
 import {
   MessageAction as Action,
@@ -28,6 +29,15 @@ export function PureMessageActions({
   onRegenerate?: () => void;
 }) {
   const { mutate } = useSWRConfig();
+  const [isExporting, setIsExporting] = useState(false);
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      await downloadPdf({ id: message.id, kind: "message" });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [message.id]);
   const [_, copyToClipboard] = useCopyToClipboard();
 
   const textFromParts = message.parts
@@ -167,7 +177,21 @@ export function PureMessageActions({
   }
 
   return (
-    <Actions className="-ml-0.5 opacity-0 transition-opacity duration-150 group-hover/message:opacity-100">
+    <Actions className="-ml-0.5 opacity-100 transition-opacity duration-150 md:opacity-0 md:group-hover/message:opacity-100 focus-within:opacity-100">
+      {textFromParts && (
+        <Action
+          aria-label="Save as PDF"
+          disabled={isExporting}
+          onClick={handleExport}
+          tooltip="Save as PDF"
+        >
+          {isExporting ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Download className="size-4" />
+          )}
+        </Action>
+      )}
       {Boolean(onRegenerate) && (
         <Action
           data-testid="message-regenerate"

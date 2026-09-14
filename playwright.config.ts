@@ -9,6 +9,7 @@ export default defineConfig({
   expect: { timeout: 30_000 },
   forbidOnly: Boolean(process.env.CI),
   fullyParallel: false,
+  globalSetup: "./tests/global-setup.ts",
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   reporter: [["list"], ["html", { open: "never" }]],
   retries: 0,
@@ -20,7 +21,7 @@ export default defineConfig({
     command: `node node_modules/next/dist/bin/next dev --port ${port} --hostname 127.0.0.1`,
     reuseExistingServer: false,
     timeout: 180_000,
-    url: `${baseURL}/ping`,
+    url: `${baseURL}/api/auth/csrf`,
   },
   workers: 1,
 });

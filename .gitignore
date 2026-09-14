@@ -30,3 +30,6 @@ tsconfig.tsbuildinfo
 
 # local Postgres cluster (corepack pnpm db:local)
 .localdb/
+
+# Local Codex verification logs
+.codex-*.log

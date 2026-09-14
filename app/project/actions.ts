@@ -14,6 +14,7 @@ import {
 } from "@/lib/db/project-queries";
 import { saveChat } from "@/lib/db/queries";
 import type { Project } from "@/lib/db/schema";
+import { getEntitlement } from "@/lib/entitlements";
 import { ChatbotError } from "@/lib/errors";
 import { generateUUID } from "@/lib/utils";
 
@@ -57,6 +58,17 @@ export async function createProjectAction(
   } catch (error) {
     if (!(error instanceof ChatbotError)) {
       throw error;
+    }
+    if (error.type !== "forbidden") {
+      throw error;
+    }
+    const entitlement = await getEntitlement(userId);
+    if (entitlement.status === "active" && entitlement.planId === "pro") {
+      return {
+        error:
+          "You've reached your 40 project folders. Delete an unused folder to create another; its chats will stay in History.",
+        success: false,
+      };
     }
     return {
       error: "Your plan cannot add another folder. Check your plan or upgrade.",

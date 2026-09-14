@@ -41,7 +41,7 @@ source of truth for every decision in this repository.
 | ----- | --------------- | ---------------- | -------------- | --------------- |
 | Basic | ₹250            | `low`            | 40             | 3               |
 | Plus  | ₹800            | `medium`         | 100            | 20              |
-| Pro   | ₹1,200          | `high`           | Unlimited\*    | Unlimited       |
+| Pro   | ₹1,200          | `high`           | Unlimited\*    | 40              |
 
 \* Pro is shown as unlimited and enforces a hidden fair-use ceiling.
 
@@ -205,3 +205,12 @@ Able is built on [vercel/ai-chatbot](https://github.com/vercel/ai-chatbot),
 licensed under Apache-2.0. The upstream licence is kept at
 [`LICENSE`](LICENSE), the modifications are recorded in [`NOTICE`](NOTICE), and
 the exact upstream commit is noted in [`docs/UPSTREAM.md`](docs/UPSTREAM.md).
+
+
+### PDF downloads and deep research
+
+Use Node.js 22.17 or later in the 22.x series, or Node.js 24.x, for the bundled Chromium renderer.
+
+Text documents have **Download PDF**, and completed answers have **Save as PDF**. PDFs include tables, code, maths and Mermaid diagrams. Daily downloads: Basic 5, Plus 20, Pro 50. Local rendering uses the Playwright Chromium installed with `corepack pnpm exec playwright install chromium --only-shell`; alternatively set `PDF_CHROMIUM_PATH` to a local Chromium executable. Vercel uses the bundled serverless Chromium, with no extra API key.
+
+The composer's **Research** mode gathers and cross-checks web evidence before writing a cited report. Plus includes 3 reports/day (2 evidence passes); Pro includes 10/day (4 passes). Research uses Groq and counts toward the normal AI allowance. Limits reset at midnight India time. Apply migration `0005_feature_runs` before running these features. Deployment builds run migrations automatically.

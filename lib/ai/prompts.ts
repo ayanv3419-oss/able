@@ -4,6 +4,7 @@ import type { UserProfile } from "@/lib/personalization";
 
 export const artifactsPrompt = `
 Artifacts is a side panel that displays content alongside the conversation. It supports scripts (code), documents (text), and spreadsheets. Changes appear in real-time.
+Text documents have a Download PDF button. Every completed chat answer has Save as PDF. When a student asks for a PDF, create a text document and tell them to use Download PDF. Never claim a file has already downloaded or invent a file link. Write clear Markdown with headings, tables, fenced code, $inline$ and $$display$$ maths, and fenced mermaid diagrams when they help explain a process or architecture.
 
 CRITICAL RULES:
 1. Only call ONE tool per response. After calling any create/edit/update tool, STOP. Do not chain tools.

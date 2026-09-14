@@ -30,7 +30,9 @@ Able is a paid, ChatGPT-style assistant for students. This file is the single so
 |---|---|---|---|---|---|---|
 | `basic` | Basic | ₹250 / 30 days | $2.99 | `low` | 40 | 3 |
 | `plus` | Plus | ₹800 / 30 days | $8.99 | `medium` | 100 | 20 |
-| `pro` | Pro | ₹1,200 / 30 days | $12.99 | `high` | shown as Unlimited, hidden fair-use ceiling of 150 | unlimited |
+| `pro` | Pro | ₹1,200 / 30 days | $12.99 | `high` | shown as Unlimited, hidden fair-use ceiling of 150 | 40 |
+
+Daily file uploads are capped per plan: Basic 5, Plus 20, Pro none. The count resets at midnight India time, like messages. Each answer draws on at most 3 (Basic), 6 (Plus) or 10 (Pro) saved memories and, inside a project, the same number of past-chat excerpts.
 
 Display names are a default; the owner described the plans but did not name them. Prices are charged in rupees only. Dollar amounts are shown for reference.
 
@@ -107,7 +109,7 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 
 - Provider: `createGroq({ apiKey: process.env.GROQ_API_KEY })`. Chat model `openai/gpt-oss-120b` with `providerOptions.groq.reasoningEffort` set from the plan. Title model `openai/gpt-oss-20b`.
 - Test runs keep the template's mock models when `isTestEnvironment` is true. No test may call Groq.
-- System prompt: Able is a helpful, clear assistant like ChatGPT, family-safe for all ages. `lib/ai/personalization-context.ts` then assembles the student's context, applied in this priority order: system and safety rules, project instructions, custom instructions, profile and relevant memory, project context (name, relevant project memories, and relevant excerpts from the same project's other chats, capped at 12,000 characters), the conversation, and the current message. Only relevant memories are sent (at most 10), never another project's memories or chats, and none when memory is off. The context is marked as data: it cannot override system rules, and Able must never invent profile facts, memories or history.
+- System prompt: Able is a helpful, clear assistant like ChatGPT, family-safe for all ages. `lib/ai/personalization-context.ts` then assembles the student's context, applied in this priority order: system and safety rules, project instructions, custom instructions, profile and relevant memory, project context (name, relevant project memories, and relevant excerpts from the same project's other chats, capped at 12,000 characters), the conversation, and the current message. Only relevant memories are sent (at most 3/6/10 for Basic/Plus/Pro), never another project's memories or chats, and none when memory is off. The context is marked as data: it cannot override system rules, and Able must never invent profile facts, memories or history.
 - Reply language: an explicit request in the current message wins, then the profile's saved language, then the language and mixing style detected in the message (English, Hindi, Hinglish, Gujarati).
 - Tools: the template's document tools (`createDocument`, `editDocument`, `updateDocument`, `requestSuggestions`) stay, with text, code and sheet kinds. `saveMemory({ content, scope })` saves an explicitly stated durable fact or preference, to the current project (`scope: "project"`) or across Able (`scope: "global"`), only when memory is on. `browser_search: groq.tools.browserSearch({})` is added only when the request's `webSearch` flag is true.
 - Reasoning is streamed and shown in the existing collapsible reasoning component.
@@ -118,7 +120,7 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 
 **Paywall.** A student without a current plan sees the chat layout, but the composer is replaced by a card: choose a plan, waiting for approval, plan expired, or daily limit reached.
 
-**Pay.** `/pricing` shows three plan cards with rupee prices and dollar references. It says payment is by UPI only and gives a contact email for students outside India. `/pay/[plan]` shows a QR code generated from `UPI_ID`, `UPI_PAYEE_NAME`, the amount and a note like `Able plus 1a2b3c`, a copy button for the UPI ID, and a "Pay with UPI app" link for phones. The student then enters the UPI reference number and submits. References are 10 to 24 letters or digits, stored in upper case, and must be unique across pending, approved and refunded payments. Rejected references may be resubmitted, retaining the prior review history. A student can have only one pending payment at a time. After submitting they see a waiting-for-approval screen.
+**Pay.** `/pricing` shows three plan cards with rupee prices and dollar references. The cards follow the pricing layout of ChatGPT: plan name and a short line, a large rupee price with a small dollar price, a full-width Get button, then a tick list of that plan's own features in the owner's words. Features not built yet (the assistant system) carry a Coming soon tag. Plus is marked Popular. It says payment is by UPI only and gives a contact email for students outside India. `/pay/[plan]` shows a QR code generated from `UPI_ID`, `UPI_PAYEE_NAME`, the amount and a note like `Able plus 1a2b3c`, a copy button for the UPI ID, and a "Pay with UPI app" link for phones. The student then enters the UPI reference number and submits. References are 10 to 24 letters or digits, stored in upper case, and must be unique across pending, approved and refunded payments. Rejected references may be resubmitted, retaining the prior review history. A student can have only one pending payment at a time. After submitting they see a waiting-for-approval screen.
 
 **Approve.** On approval of a payment for plan X at time T: if all unexpired active periods are on plan X, the new period starts after the latest queued period ends and runs 30 days. Otherwise it starts at T for 30 days and all unexpired active periods are marked `superseded`. The payment determines the plan; there is no plan override. The queue previews the new end date, queued renewals, or paid days lost on a switch. Approve and Reject each take one tap with no confirmation. Reject has no reason field; students see a fixed message to check the UTR, resubmit it for the paid plan, or contact support. These are OWNER decisions from 14 September 2026.
 
@@ -197,3 +199,22 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 - Groq's base limits can serve only a few dozen reasoning messages a day for the whole app.
 - Only students with Indian UPI can pay.
 - Manual approval means students wait until the owner checks the admin page.
+
+
+## 13. PDF creation and deep research (14 September 2026)
+
+Owner decisions: build PDF creation first, then deep research. Text documents have Download PDF; completed answers have Save as PDF. Both use a server-side Chromium engine for a real, selectable PDF, including maths, Mermaid diagrams, tables and code. The existing text document tool can receive the full document content, preserving the student's request and context.
+
+Builder defaults, adjustable in code:
+
+| Plan | PDF downloads/day | Research reports/day | Research evidence passes |
+|---|---:|---:|---:|
+| Basic | 5 | 0 | 0 |
+| Plus | 20 | 3 | 2 |
+| Pro | 50 | 10 | 4 |
+
+Allowances reset at midnight India time. All plans get the same PDF rendering quality; PDF input is limited to 240,000 characters. Exports require an active plan and source ownership. They include visible answer text and public sources, never reasoning or tool inputs. Documents export their currently displayed editable content. PDFs are generated in an isolated browser with network access blocked and returned directly, without storing PDF files. Failed exports release their reservation.
+
+Research is an explicit composer mode for Plus/Pro. Groq gathers evidence in multiple passes, then writes a report with public source links, limitations and comparisons. Source links and final reports are saved in the existing chat/message tables and reports can be downloaded with Save as PDF. Model calls and searches count toward the existing AI allowance. Progress and stop controls use the existing chat stream. No verified sources means a clear error, not a fabricated research report. Failed or cancelled reports release the report allowance; model work already completed is still metered.
+
+FeatureRun stores a pending/completed/failed reservation and timestamps for PDF/research quotas. Per-student row locks prevent concurrent requests from bypassing a cap. Pending reservations expire after five minutes for recovery from a stopped server. Account deletion cascades to these reservations. Daily upload checks and insertion also share one student lock.

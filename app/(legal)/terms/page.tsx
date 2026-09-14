@@ -106,6 +106,15 @@ export default function Page() {
         at midnight India time.
       </p>
 
+      <p>
+        Daily uploads are limited to 5 on Basic and 20 on Plus; Pro has no daily
+        upload cap. PDF downloads are limited to 5, 20 and 50 per day
+        respectively. Failed PDF exports do not use a download. These allowances
+        reset at midnight India time. Deep research is available on Plus (3
+        reports/day) and Pro (10 reports/day), and its model calls and searches
+        use the AI allowance.
+      </p>
+
       <h2>6. Acceptable use</h2>
 
       <p>Don't use Able to:</p>

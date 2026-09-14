@@ -23,6 +23,13 @@ import { GroqSearchTracker } from "@/lib/ai/groq-search";
 import { buildPersonalizationContext } from "@/lib/ai/personalization-context";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getChatModel, groq } from "@/lib/ai/providers";
+import {
+  collectResearch,
+  RESEARCH_LIMITS,
+  ResearchError,
+  researchReportInstructions,
+} from "@/lib/ai/research";
+import { normalizeResearchCitations } from "@/lib/ai/research-citations";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { editDocument } from "@/lib/ai/tools/edit-document";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
@@ -31,6 +38,7 @@ import { updateDocument } from "@/lib/ai/tools/update-document";
 import { usageForBilling } from "@/lib/ai/usage";
 import { isProductionEnvironment } from "@/lib/constants";
 import { getAttachments } from "@/lib/db/attachment-queries";
+import { finishFeature, reserveFeature } from "@/lib/db/feature-queries";
 import {
   createStreamId,
   deleteChatById,
@@ -47,13 +55,13 @@ import { insertUsageEvent } from "@/lib/db/usage-queries";
 import { getEntitlement } from "@/lib/entitlements";
 import { ChatbotError } from "@/lib/errors";
 import { costMicros } from "@/lib/metering";
-import type { PlanId } from "@/lib/plans";
+import { getPlan, type PlanId } from "@/lib/plans";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage, WaitingStatusData } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 const STILL_WAITING_DELAY_MS = 9000;
 const ATTACHMENT_URL_PREFIX = "attachment://";
@@ -269,6 +277,7 @@ export async function POST(request: Request) {
       messages,
       selectedVisibilityType,
       webSearch,
+      deepResearch,
       trigger,
     } = requestBody;
 
@@ -310,6 +319,12 @@ export async function POST(request: Request) {
     }
 
     const { planId } = entitlement;
+    if (deepResearch && RESEARCH_LIMITS[planId].daily === 0) {
+      return new ChatbotError(
+        "forbidden:research",
+        "Deep research is available on Plus and Pro."
+      ).toResponse();
+    }
 
     const isToolApprovalFlow = Boolean(messages);
 
@@ -404,25 +419,12 @@ export async function POST(request: Request) {
       longitude,
     };
 
-    if (message?.role === "user") {
-      await saveMessages({
-        messages: [
-          {
-            attachments: [],
-            chatId: id,
-            createdAt: new Date(),
-            id: message.id,
-            parts: message.parts,
-            role: "user",
-          },
-        ],
-      });
-    }
-
     // Personalized context: profile, custom instructions, relevant memories,
     // project instructions and same-project history, in docs/SPEC.md §6 order.
     // buildPersonalizationContext re-checks project ownership itself.
     const personal = await buildPersonalizationContext({
+      // Higher plans draw on more memories per answer (lib/plans.ts).
+      contextMemories: getPlan(planId).contextMemories,
       conversationHint: recentConversationText(uiMessages),
       currentChatId: id,
       currentInput: latestUserText(uiMessages),
@@ -449,9 +451,88 @@ export async function POST(request: Request) {
       ).toResponse();
     }
     const modelMessages = await convertToModelMessages(resolvedMessages);
+    const researchReservation = deepResearch
+      ? await reserveFeature({
+          kind: "research",
+          limit: RESEARCH_LIMITS[planId].daily,
+          userId,
+        })
+      : null;
+    if (researchReservation && "error" in researchReservation) {
+      return new ChatbotError(
+        "rate_limit:research",
+        researchReservation.error === "busy"
+          ? "A research report is already running. Wait for it to finish."
+          : `You've used today's ${RESEARCH_LIMITS[planId].daily} research reports. They reset at midnight India time.`
+      ).toResponse();
+    }
+    try {
+      if (message?.role === "user") {
+        await saveMessages({
+          messages: [
+            {
+              attachments: [],
+              chatId: id,
+              createdAt: new Date(),
+              id: message.id,
+              parts: message.parts,
+              role: "user",
+            },
+          ],
+        });
+      }
+    } catch (error) {
+      if (researchReservation) {
+        await finishFeature(researchReservation.id, false);
+      }
+      throw error;
+    }
+
+    let researchFinished = false;
+    const completeResearch = async (successful: boolean) => {
+      if (!researchReservation || researchFinished) {
+        return;
+      }
+      researchFinished = true;
+      await finishFeature(researchReservation.id, successful);
+    };
+    const modelSignal = deepResearch
+      ? AbortSignal.any([request.signal, AbortSignal.timeout(165_000)])
+      : request.signal;
 
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
+        let researchInstructions = "";
+        let researchSources: { url: string }[] = [];
+        if (deepResearch) {
+          try {
+            const evidence = await collectResearch({
+              messages: modelMessages,
+              onProgress: (text) =>
+                dataStream.write({
+                  data: { message: text, phase: "thinking" },
+                  transient: true,
+                  type: "data-waiting-status",
+                }),
+              onSource: (source) =>
+                dataStream.write({ type: "source-url", ...source }),
+              onUsage: (usage, searches) =>
+                recordChatUsage({
+                  billing: billingFromUsage(usage, searches),
+                  chatId: id,
+                  planId,
+                  userId,
+                }),
+              planId,
+              signal: modelSignal,
+            });
+            researchInstructions = researchReportInstructions(evidence);
+            researchSources = evidence.sources;
+          } catch (error) {
+            await completeResearch(false);
+            throw error;
+          }
+        }
         let usageRecorded = false;
         let hasModelActivity = false;
         let stillWaitingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -476,7 +557,10 @@ export async function POST(request: Request) {
           });
         };
 
-        writeWaitingStatus("waiting", "Waiting...");
+        writeWaitingStatus(
+          "waiting",
+          deepResearch ? "Writing your research report…" : "Waiting..."
+        );
 
         stillWaitingTimer = setTimeout(() => {
           writeWaitingStatus("still-waiting", "Still waiting...");
@@ -512,7 +596,7 @@ export async function POST(request: Request) {
           // @ai-sdk/groq pins an older @ai-sdk/provider-utils than this repo's
           // "ai", so its tool factory's structural type doesn't quite match
           // this build's `Tool`. The cast is safe: Groq's own SDK produces it.
-          ...(webSearch
+          ...(webSearch && !deepResearch
             ? {
                 browser_search: groq.tools.browserSearch({}) as unknown as Tool,
               }
@@ -521,16 +605,20 @@ export async function POST(request: Request) {
 
         const searchTracker = new GroqSearchTracker();
         const result = streamText({
-          abortSignal: request.signal,
-          activeTools: Object.keys(toolSet) as (keyof typeof toolSet)[],
-          include: { rawChunks: webSearch },
-          instructions: systemPrompt({
-            personalization: personal.context,
-            requestHints,
-          }),
+          abortSignal: modelSignal,
+          activeTools: deepResearch
+            ? []
+            : (Object.keys(toolSet) as (keyof typeof toolSet)[]),
+          include: { rawChunks: webSearch && !deepResearch },
+          instructions:
+            systemPrompt({
+              personalization: personal.context,
+              requestHints,
+            }) + (researchInstructions ? `\n\n${researchInstructions}` : ""),
           messages: modelMessages,
           model: getChatModel(),
           async onAbort(event) {
+            await completeResearch(false);
             stopWaitingStatus();
             if (usageRecorded) {
               return;
@@ -573,7 +661,8 @@ export async function POST(request: Request) {
             );
             await recordChatUsage({ billing, chatId: id, planId, userId });
           },
-          onError() {
+          async onError() {
+            await completeResearch(false);
             stopWaitingStatus();
           },
           providerOptions: {
@@ -593,7 +682,9 @@ export async function POST(request: Request) {
           toUIMessageStream({
             sendReasoning: true,
             sendSources: true,
-            stream: result.stream,
+            stream: deepResearch
+              ? normalizeResearchCitations(result.stream, researchSources)
+              : result.stream,
           })
         );
 
@@ -649,11 +740,23 @@ export async function POST(request: Request) {
             })),
           });
         }
+        await completeResearch(
+          finishedMessages.some((item) =>
+            item.parts.some((part) => part.type === "text" && part.text.trim())
+          )
+        );
       },
-      onError: (error) =>
-        APICallError.isInstance(error) && error.statusCode === 429
+      onError: (error) => {
+        if (error instanceof ResearchError) {
+          return error.message;
+        }
+        if (deepResearch && modelSignal.aborted) {
+          return "This research took too long. Try a narrower question.";
+        }
+        return APICallError.isInstance(error) && error.statusCode === 429
           ? "Able is busy right now, try again in a minute."
-          : "Able could not finish this response. Please try again.",
+          : "Able could not finish this response. Please try again.";
+      },
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
     });
 

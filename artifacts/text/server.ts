@@ -5,13 +5,21 @@ import { createDocumentHandler } from "@/lib/artifacts/server";
 
 export const textDocumentHandler = createDocumentHandler<"text">({
   kind: "text",
-  onCreateDocument: async ({ title, dataStream, session }) => {
+  onCreateDocument: async ({ title, dataStream, session, initialContent }) => {
+    if (initialContent?.trim()) {
+      dataStream.write({
+        data: initialContent,
+        transient: true,
+        type: "data-textDelta",
+      });
+      return initialContent;
+    }
     let draftContent = "";
 
     const { stream } = streamText({
       experimental_transform: smoothStream({ chunking: "word" }),
       instructions:
-        "Write about the given topic. Markdown is supported. Use headings wherever appropriate.",
+        "Write a well-structured document about the given topic. Use Markdown headings, tables, fenced code, $inline$ and $$display$$ maths, and fenced mermaid diagrams when useful. The student can download it as a PDF.",
       ...(await meteredArtifactOptions(session.user.id)),
       prompt: title,
     });

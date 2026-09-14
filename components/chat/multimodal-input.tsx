@@ -2,7 +2,7 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
-import { ArrowUpIcon, Globe } from "lucide-react";
+import { ArrowUpIcon, Globe, Telescope } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { useActiveChat } from "@/hooks/use-active-chat";
+import { useEntitlement } from "@/hooks/use-entitlement";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -67,11 +68,21 @@ function PureMultimodalInput({
   onCancelEdit?: () => void;
 }) {
   const router = useRouter();
-  const { webSearch, setWebSearch } = useActiveChat();
-  const toggleWebSearch = useCallback(
-    () => setWebSearch((value) => !value),
-    [setWebSearch]
-  );
+  const { webSearch, setWebSearch, deepResearch, setDeepResearch } =
+    useActiveChat();
+  const { data: entitlement } = useEntitlement();
+  const toggleResearch = useCallback(() => {
+    if (entitlement?.planId === "basic") {
+      toast.error("Deep research is available on Plus and Pro.");
+      return;
+    }
+    setWebSearch(false);
+    setDeepResearch((value) => !value);
+  }, [entitlement?.planId, setWebSearch, setDeepResearch]);
+  const toggleWebSearch = useCallback(() => {
+    setDeepResearch(false);
+    setWebSearch((value) => !value);
+  }, [setWebSearch, setDeepResearch]);
   const appendTranscript = useCallback(
     (text: string) =>
       setInput((current) => (current ? `${current} ${text}` : text)),
@@ -505,6 +516,18 @@ function PureMultimodalInput({
             >
               <Globe className="size-3.5" />
               Search
+            </Button>
+            <Button
+              aria-label="Deep research"
+              aria-pressed={deepResearch}
+              className="h-7 gap-1.5 rounded-lg px-2 text-xs"
+              disabled={status === "submitted" || status === "streaming"}
+              onClick={toggleResearch}
+              title="Compare sources and write a cited report. Plus: 3/day; Pro: 10/day. Uses your AI allowance."
+              type="button"
+              variant={deepResearch ? "secondary" : "ghost"}
+            >
+              <Telescope className="size-3.5" /> Research
             </Button>
             <VoiceInput
               disabled={status === "submitted" || status === "streaming"}

@@ -42,6 +42,7 @@ const toolApprovalMessageSchema = z.object({
 
 export const postRequestBodySchema = z
   .object({
+    deepResearch: z.boolean().optional().default(false),
     id: z.uuid(),
     message: userMessageSchema.optional(),
     messages: z.array(toolApprovalMessageSchema).optional(),

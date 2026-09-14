@@ -17,7 +17,7 @@ export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>
   tool({
     description:
       "Create an artifact. You MUST specify kind: use 'code' for any programming/algorithm request (creates a script), 'text' for essays/writing (creates a document), 'sheet' for spreadsheets/data.",
-    execute: async ({ title, kind }) => {
+    execute: async ({ title, kind, content }) => {
       const id = generateUUID();
 
       dataStream.write({
@@ -56,6 +56,7 @@ export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>
       await documentHandler.onCreateDocument({
         dataStream,
         id,
+        initialContent: content,
         session,
         title,
       });
@@ -73,6 +74,13 @@ export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>
       };
     },
     inputSchema: z.object({
+      content: z
+        .string()
+        .max(240_000)
+        .optional()
+        .describe(
+          "For text documents and PDFs, include the complete Markdown document here, based on the student's request and context. Maths and fenced mermaid diagrams are supported."
+        ),
       kind: z
         .enum(artifactKinds)
         .describe(

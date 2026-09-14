@@ -54,12 +54,15 @@ export async function buildPersonalizationContext({
   currentChatId,
   currentInput,
   conversationHint = "",
+  contextMemories = 10,
 }: {
   userId: string;
   projectId: string | null;
   currentChatId: string;
   currentInput: string;
   conversationHint?: string;
+  /** How many memories and project excerpts this student's plan may use. */
+  contextMemories?: number;
 }) {
   const [settings, selectedProject] = await Promise.all([
     getUserSettings(userId),
@@ -77,7 +80,8 @@ export async function buildPersonalizationContext({
   const relevant = selectRelevantMemories(
     memories,
     `${currentInput}\n${selectedProject?.name ?? ""}\n${conversationHint.slice(-1500)}`,
-    ownedProjectId
+    ownedProjectId,
+    contextMemories
   );
   return {
     context: {
@@ -92,7 +96,9 @@ export async function buildPersonalizationContext({
       profile: settings.profile,
       projectHistory: selectProjectHistory(
         history,
-        `${currentInput}\n${conversationHint.slice(-1500)}`
+        `${currentInput}\n${conversationHint.slice(-1500)}`,
+        new Date(),
+        contextMemories
       ).map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
       projectInstructions: selectedProject?.instructions ?? null,
       projectMemories: relevant

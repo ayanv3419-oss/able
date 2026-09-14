@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: "Pricing",
 };
 
-/** The plan shown with a "Most popular" badge. The owner can change this. */
+/** The plan marked "Popular". The owner can change this. */
 const HIGHLIGHTED_PLAN_ID = "plus";
 
 /**
@@ -40,7 +40,7 @@ function PlanCardsFallback() {
   return (
     <div className="grid gap-5 md:grid-cols-3">
       {PLAN_IDS.map((id) => (
-        <Skeleton className="h-96 w-full" key={id} />
+        <Skeleton className="h-96 w-full rounded-2xl" key={id} />
       ))}
     </div>
   );
@@ -59,8 +59,8 @@ export default function Page() {
             Plans for Able
           </h1>
           <p className="text-muted-foreground text-sm">
-            Every plan includes the same Able, at a reasoning effort and message
-            allowance that fits how much you chat.
+            Choose the reasoning, project folders and daily allowances that fit
+            the way you study.
           </p>
         </div>
 

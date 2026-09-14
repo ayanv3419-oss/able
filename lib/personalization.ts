@@ -103,7 +103,9 @@ export type ContextMemory = { content: string; projectId: string | null };
 export function selectRelevantMemories<T extends ContextMemory>(
   memories: T[],
   query: string,
-  projectId: string | null
+  projectId: string | null,
+  /** At most this many memories, set by the student's plan. */
+  limit = 10
 ) {
   const terms = contextTerms(query);
   const personalQuestion =
@@ -130,7 +132,7 @@ export function selectRelevantMemories<T extends ContextMemory>(
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score || a.index - b.index);
   return ranked
-    .slice(0, 10)
+    .slice(0, limit)
     .map(({ item }) => ({ ...item, content: item.content.slice(0, 500) }));
 }
 
@@ -146,7 +148,9 @@ export type ProjectExcerpt = {
 export function selectProjectHistory(
   candidates: ProjectExcerpt[],
   query: string,
-  now = new Date()
+  now = new Date(),
+  /** At most this many excerpts, set by the student's plan. */
+  limit = 10
 ) {
   const terms = contextTerms(query);
   const continuation = isContinuation(query);
@@ -166,7 +170,7 @@ export function selectProjectHistory(
     .sort((a, b) => b.score - a.score || a.index - b.index);
   let budget = 12_000;
   const selected: ProjectExcerpt[] = [];
-  for (const { item } of ranked.slice(0, 10)) {
+  for (const { item } of ranked.slice(0, limit)) {
     if (budget <= 0) {
       break;
     }

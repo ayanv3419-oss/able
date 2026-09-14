@@ -106,4 +106,26 @@ describe("personalized context selection", () => {
       )
     ).toBeLessThanOrEqual(12_000);
   });
+
+  it("uses no more memories or excerpts than the plan allows", () => {
+    const memories = Array.from({ length: 12 }, (_, index) => ({
+      content: `Python fact ${index}`,
+      projectId: null,
+    }));
+    const query = "Explain Python";
+    expect(selectRelevantMemories(memories, query, null, 3)).toHaveLength(3);
+    expect(selectRelevantMemories(memories, query, null, 6)).toHaveLength(6);
+    expect(selectRelevantMemories(memories, query, null)).toHaveLength(10);
+
+    const now = new Date("2026-09-12T10:00:00Z");
+    const excerpts = Array.from({ length: 12 }, (_, index) => ({
+      chatId: String(index),
+      createdAt: new Date(now.getTime() - index * 60_000),
+      role: "user",
+      text: `Python note ${index}`,
+      title: "Python",
+    }));
+    expect(selectProjectHistory(excerpts, query, now, 3)).toHaveLength(3);
+    expect(selectProjectHistory(excerpts, query, now)).toHaveLength(10);
+  });
 });

@@ -12,7 +12,10 @@ describe("plans", () => {
 
   it("prices Basic at 250 rupees with low reasoning", () => {
     expect(PLANS.basic).toEqual({
+      contextMemories: 3,
       dailyMessages: 40,
+      dailyPdfs: 5,
+      dailyUploads: 5,
       displayUnlimited: false,
       id: "basic",
       name: "Basic",
@@ -25,7 +28,10 @@ describe("plans", () => {
 
   it("prices Plus at 800 rupees with medium reasoning", () => {
     expect(PLANS.plus).toEqual({
+      contextMemories: 6,
       dailyMessages: 100,
+      dailyPdfs: 20,
+      dailyUploads: 20,
       displayUnlimited: false,
       id: "plus",
       name: "Plus",
@@ -36,17 +42,31 @@ describe("plans", () => {
     });
   });
 
-  it("shows Pro as unlimited but keeps a 150 message ceiling", () => {
+  it("shows Pro as unlimited but keeps a 150 message ceiling and 40 folders", () => {
     expect(PLANS.pro).toEqual({
+      contextMemories: 10,
       dailyMessages: 150,
+      dailyPdfs: 50,
+      dailyUploads: null,
       displayUnlimited: true,
       id: "pro",
       name: "Pro",
       priceInr: 1200,
       priceUsdDisplay: "$12.99",
-      projectFolderLimit: null,
+      projectFolderLimit: 40,
       reasoningEffort: "high",
     });
+  });
+
+  it("gives each higher plan more of every limit", () => {
+    expect(PLANS.basic.dailyMessages).toBeLessThan(PLANS.plus.dailyMessages);
+    expect(PLANS.plus.dailyMessages).toBeLessThan(PLANS.pro.dailyMessages);
+    expect(PLANS.basic.contextMemories).toBeLessThan(
+      PLANS.plus.contextMemories
+    );
+    expect(PLANS.plus.contextMemories).toBeLessThan(PLANS.pro.contextMemories);
+    expect(PLANS.basic.dailyUploads).toBeLessThan(PLANS.plus.dailyUploads ?? 0);
+    expect(PLANS.pro.dailyUploads).toBeNull();
   });
 
   it("recognises plan ids and rejects anything else", () => {

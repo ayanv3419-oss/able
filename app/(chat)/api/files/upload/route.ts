@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
-import { createAttachment } from "@/lib/db/attachment-queries";
+import { uploadLimitError } from "@/lib/billing/upload-limit";
+import {
+  countAttachmentsSince,
+  createAttachmentWithinLimit,
+} from "@/lib/db/attachment-queries";
 import { getEntitlement } from "@/lib/entitlements";
+import { istDayStart } from "@/lib/metering";
+import { getPlan } from "@/lib/plans";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 /** SPEC §7: files over ~60,000 estimated tokens (chars ÷ 4) are rejected. */
@@ -47,8 +53,21 @@ export async function POST(request: Request) {
     return errorResponse("You need to sign in to upload files.", 401);
   }
   const entitlement = await getEntitlement(session.user.id);
-  if (entitlement.status !== "active") {
+  if (entitlement.status !== "active" || !entitlement.planId) {
     return errorResponse("Choose an active plan before uploading files.", 403);
+  }
+  // Daily upload caps per plan (Basic 5, Plus 20, Pro none), reset at
+  // midnight India time like the message allowance.
+  const plan = getPlan(entitlement.planId);
+  if (plan.dailyUploads !== null) {
+    const usedToday = await countAttachmentsSince({
+      since: istDayStart(new Date()),
+      userId: session.user.id,
+    });
+    const limitError = uploadLimitError(plan, usedToday);
+    if (limitError) {
+      return errorResponse(limitError, 429);
+    }
   }
 
   if (request.body === null) {
@@ -113,12 +132,23 @@ export async function POST(request: Request) {
       return errorResponse("Able couldn't find any text in that file.");
     }
 
-    const attachment = await createAttachment({
-      mediaType,
-      name: file.name,
-      text,
-      userId: session.user.id,
-    });
+    const attachment = await createAttachmentWithinLimit(
+      {
+        mediaType,
+        name: file.name,
+        text,
+        userId: session.user.id,
+      },
+      plan.dailyUploads
+    );
+
+    if (!attachment) {
+      return errorResponse(
+        uploadLimitError(plan, plan.dailyUploads ?? 0) ??
+          "Today's upload limit was reached.",
+        429
+      );
+    }
 
     return NextResponse.json({
       contentType: attachment.mediaType,

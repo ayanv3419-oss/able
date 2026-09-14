@@ -34,12 +34,40 @@ const createMockModel = (): LanguageModel =>
       warnings: [],
     }),
     doStream: ({ prompt }: { prompt: unknown }) => {
+      const isResearch = JSON.stringify(prompt).includes("ABLE_RESEARCH_PASS");
       const response = getResponseForPrompt(prompt);
       const words = response.split(" ");
 
       return {
         stream: new ReadableStream({
           async start(controller) {
+            if (isResearch) {
+              controller.enqueue({
+                rawValue: {
+                  choices: [
+                    {
+                      delta: {
+                        executed_tools: [
+                          {
+                            index: 0,
+                            name: "browser.search",
+                            search_results: {
+                              results: [
+                                {
+                                  title: "Test research reference",
+                                  url: "https://example.com/research",
+                                },
+                              ],
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+                type: "raw",
+              });
+            }
             controller.enqueue({ id: "t1", type: "text-start" });
             await words.reduce<Promise<void>>(async (previous, word) => {
               await previous;

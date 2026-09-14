@@ -53,8 +53,19 @@ const nextConfig: NextConfig = {
     },
     incomingRequests: false,
   },
+  outputFileTracingIncludes: {
+    "/api/pdf": [
+      "./node_modules/@sparticuz/chromium/bin/**",
+      "./node_modules/katex/dist/**",
+      "./node_modules/mermaid/dist/mermaid.min.js",
+      "./node_modules/@fontsource/noto-sans/files/*latin-400-normal.woff2",
+      "./node_modules/@fontsource/noto-sans-devanagari/files/*devanagari-400-normal.woff2",
+      "./node_modules/@fontsource/noto-sans-gujarati/files/*gujarati-400-normal.woff2",
+    ],
+  },
   poweredByHeader: false,
   reactCompiler: true,
+  serverExternalPackages: ["@sparticuz/chromium", "playwright-core"],
 };
 
 export default withBotId(nextConfig);

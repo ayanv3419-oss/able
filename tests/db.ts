@@ -28,3 +28,16 @@ export async function setPlanEndsInDays(email: string, days: number) {
     await sql.end();
   }
 }
+
+/** Adds uploaded files for the student, dated now, to test the daily cap. */
+export async function seedUploadsToday(email: string, files: number) {
+  if (!process.env.TEST_POSTGRES_URL) {
+    throw new Error("Use pnpm test with the isolated test database.");
+  }
+  const sql = postgres(process.env.TEST_POSTGRES_URL, { max: 1 });
+  try {
+    await sql`INSERT INTO "Attachment" ("userId", name, "mediaType", text, "charCount") SELECT id, 'seeded.txt', 'text/plain', 'seeded', 6 FROM "User", generate_series(1, ${files}::int) WHERE email = ${email}`;
+  } finally {
+    await sql.end();
+  }
+}
