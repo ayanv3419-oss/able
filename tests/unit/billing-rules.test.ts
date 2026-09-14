@@ -4,7 +4,7 @@ import {
   computeApproval,
   daysLeft,
   isRefundEligible,
-  normalizeUtr,
+  paymentNote,
   REFUND_WINDOW_DAYS,
 } from "@/lib/billing/rules";
 
@@ -14,38 +14,11 @@ function days(count: number): number {
   return count * DAY_MS;
 }
 
-describe("normalizeUtr", () => {
-  it("drops spaces and dashes and upper-cases the rest", () => {
-    expect(normalizeUtr("  1234 5678-90 ")).toEqual({
-      ok: true,
-      utr: "1234567890",
-    });
-    expect(normalizeUtr("abcdef1234")).toEqual({
-      ok: true,
-      utr: "ABCDEF1234",
-    });
-  });
-
-  it("accepts 10 to 24 characters", () => {
-    expect(normalizeUtr("a".repeat(10)).ok).toBe(true);
-    expect(normalizeUtr("a".repeat(24)).ok).toBe(true);
-  });
-
-  it("rejects anything shorter or longer", () => {
-    expect(normalizeUtr("a".repeat(9)).ok).toBe(false);
-    expect(normalizeUtr("a".repeat(25)).ok).toBe(false);
-  });
-
-  it("rejects an empty reference", () => {
-    const result = normalizeUtr("   ");
-
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.error.length > 0).toBe(true);
-  });
-
-  it("rejects anything that is not a letter or a digit", () => {
-    expect(normalizeUtr("12345678!0").ok).toBe(false);
-    expect(normalizeUtr("abc_def_123").ok).toBe(false);
+describe("paymentNote", () => {
+  it("names the plan and the first six characters of the student's id", () => {
+    expect(paymentNote("plus", "1a2b3c4d-0000-4000-8000-000000000000")).toBe(
+      "Able plus 1a2b3c"
+    );
   });
 });
 

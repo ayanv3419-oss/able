@@ -47,6 +47,8 @@ export const usageKindEnum = pgEnum("usage_kind", [
 export const user = pgTable(
   "User",
   {
+    /** Set when the owner rejects a payment request; cleared by Unblock. */
+    blockedAt: timestamp("blockedAt"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
     email: varchar("email", { length: 255 }).notNull(),
     emailVerified: boolean("emailVerified").notNull().default(false),
@@ -205,7 +207,8 @@ export const payment = pgTable(
     status: paymentStatusEnum("status").notNull().default("pending"),
     studentNote: text("studentNote"),
     userId: uuid("userId").references(() => user.id, { onDelete: "set null" }),
-    utr: varchar("utr", { length: 32 }).notNull(),
+    /** Only on requests made before the Request button replaced the reference box. */
+    utr: varchar("utr", { length: 32 }),
   },
   (table) => [
     uniqueIndex("Payment_unrejected_utr_unique")

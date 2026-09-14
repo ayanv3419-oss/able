@@ -49,6 +49,18 @@ describe("computeEntitlement", () => {
     expect(result.showRenewBanner).toBe(false);
   });
 
+  it("blocks a rejected student even over a paid plan", () => {
+    const result = computeEntitlement(
+      input({ blocked: true, subscription: activeSub("plus", 20) })
+    );
+
+    expect(result.status).toBe("blocked");
+    expect(result.blockReason).toBe("blocked");
+    expect(result.canSend).toBe(false);
+    expect(result.planId).toBeNull();
+    expect(result.projectLimit).toBe(0);
+  });
+
   it("shows a waiting state while a payment is unapproved", () => {
     const result = computeEntitlement(input({ hasPendingPayment: true }));
 

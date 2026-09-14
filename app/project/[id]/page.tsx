@@ -20,6 +20,7 @@ import { ProjectLoading } from "@/components/project/project-loading";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { gateStudent } from "@/lib/access";
 import { getProject, listChatsInProject } from "@/lib/db/project-queries";
 
 const createdFormat = new Intl.DateTimeFormat("en-IN", {
@@ -64,6 +65,7 @@ async function ProjectContent({ params }: { params: Promise<{ id: string }> }) {
   }
 
   const userId = session.user.id;
+  await gateStudent(userId, "projects");
   const project = await getProject({ id, userId });
 
   if (!project) {

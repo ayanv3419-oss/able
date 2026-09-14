@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { daysLeft } from "@/lib/billing/rules";
+import { daysLeft, paymentNote } from "@/lib/billing/rules";
 import {
+  listBlockedStudents,
   listPayments,
   listPendingPaymentsWithApproval,
   type PaymentWithEmail,
   type PendingPaymentWithApproval,
 } from "@/lib/db/billing-queries";
+import type { Payment } from "@/lib/db/schema";
 import { getPlan, PLAN_DAYS } from "@/lib/plans";
 import {
   EmptyState,
@@ -14,21 +16,40 @@ import {
   Td,
   Th,
 } from "../_components/section";
+import { UnblockButton } from "../_components/unblock-button";
 import { requireAdmin } from "../admin-auth";
 import { formatDate, formatDateTime } from "../format";
 import { ReviewButtons } from "./review-buttons";
 
-export const metadata: Metadata = { title: "Payments" };
+export const metadata: Metadata = { title: "Requests" };
 const PENDING_LIMIT = 200;
 const RESOLVED_LIMIT = 50;
+
+const STATUS_LABEL: Record<Payment["status"], string> = {
+  approved: "Allowed",
+  pending: "Pending",
+  refunded: "Refunded",
+  rejected: "Rejected",
+};
+
+/** How to find the payment in the UPI app: its old reference, or the QR note. */
+function paymentReference(payment: PaymentWithEmail): string {
+  if (payment.utr) {
+    return `UTR ${payment.utr}`;
+  }
+  return payment.userId
+    ? `Note: ${paymentNote(payment.planId, payment.userId)}`
+    : "No note (student deleted)";
+}
 
 export default async function AdminPaymentsPage() {
   await requireAdmin();
   const now = new Date();
-  const [pending, approved, rejected] = await Promise.all([
+  const [pending, approved, rejected, blocked] = await Promise.all([
     listPendingPaymentsWithApproval(now, PENDING_LIMIT),
     listPayments({ limit: RESOLVED_LIMIT, status: "approved" }),
     listPayments({ limit: RESOLVED_LIMIT, status: "rejected" }),
+    listBlockedStudents(),
   ]);
   const resolved = [...approved, ...rejected]
     .sort(
@@ -41,17 +62,17 @@ export default async function AdminPaymentsPage() {
   return (
     <div className="flex min-w-0 flex-col gap-10">
       <Section
-        description="Check the UTR and amount in your UPI app, then approve or reject with one tap. Newest first."
-        title="Pending payments"
+        description="Find each payment in your UPI app by its amount and note, then allow or reject it. Rejecting blocks the student. Newest first."
+        title="Payment requests"
       >
         {pending.length === 0 ? (
-          <EmptyState>No payments are waiting for review.</EmptyState>
+          <EmptyState>No requests are waiting for review.</EmptyState>
         ) : (
           <>
             <div className="flex flex-col gap-3 md:hidden">
               {pending.map((payment) => (
                 <article
-                  aria-label={`Payment from ${payment.userEmail ?? "deleted student"}`}
+                  aria-label={`Request from ${payment.userEmail ?? "deleted student"}`}
                   className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-card p-4"
                   key={payment.id}
                 >
@@ -70,8 +91,8 @@ export default async function AdminPaymentsPage() {
                   <tr>
                     <Th>Student</Th>
                     <Th>Plan / amount</Th>
-                    <Th>UTR / submitted</Th>
-                    <Th>On approval</Th>
+                    <Th>Note / sent</Th>
+                    <Th>If allowed</Th>
                     <Th>Actions</Th>
                   </tr>
                 </thead>
@@ -88,7 +109,9 @@ export default async function AdminPaymentsPage() {
                         </span>
                       </Td>
                       <Td>
-                        <span className="font-mono text-xs">{payment.utr}</span>
+                        <span className="font-mono text-xs">
+                          {paymentReference(payment)}
+                        </span>
                         <span className="mt-1 block text-muted-foreground text-xs">
                           {formatDateTime(payment.createdAt)}
                         </span>
@@ -109,7 +132,7 @@ export default async function AdminPaymentsPage() {
             </div>
             {pending.length === PENDING_LIMIT ? (
               <p className="text-muted-foreground text-sm">
-                Showing the newest {PENDING_LIMIT} payments. More will appear as
+                Showing the newest {PENDING_LIMIT} requests. More will appear as
                 you review these.
               </p>
             ) : null}
@@ -117,11 +140,38 @@ export default async function AdminPaymentsPage() {
         )}
       </Section>
       <Section
-        description="Last 50 approved or rejected payments."
+        description="Rejecting a request blocks the student. Unblock them if you rejected by mistake."
+        title="Blocked students"
+      >
+        {blocked.length === 0 ? (
+          <EmptyState>No student is blocked.</EmptyState>
+        ) : (
+          <ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
+            {blocked.map((student) => (
+              <li
+                className="flex flex-wrap items-center justify-between gap-3 p-4"
+                key={student.id}
+              >
+                <div className="min-w-0">
+                  <p className="wrap-anywhere font-medium text-sm">
+                    {student.email}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    Blocked {formatDateTime(student.blockedAt)}
+                  </p>
+                </div>
+                <UnblockButton userId={student.id} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+      <Section
+        description="Last 50 allowed or rejected requests."
         title="Recently resolved"
       >
         {resolved.length === 0 ? (
-          <EmptyState>No payment has been resolved yet.</EmptyState>
+          <EmptyState>No request has been resolved yet.</EmptyState>
         ) : (
           <>
             <div className="flex flex-col gap-3 md:hidden">
@@ -131,8 +181,8 @@ export default async function AdminPaymentsPage() {
                   key={payment.id}
                 >
                   <PaymentDetails payment={payment} />
-                  <p className="font-medium text-sm capitalize">
-                    {payment.status}
+                  <p className="font-medium text-sm">
+                    {STATUS_LABEL[payment.status]}
                   </p>
                   <p className="text-muted-foreground text-xs">
                     Reviewed{" "}
@@ -140,11 +190,6 @@ export default async function AdminPaymentsPage() {
                       ? formatDateTime(payment.reviewedAt)
                       : "—"}
                   </p>
-                  {payment.reviewNote ? (
-                    <p className="wrap-anywhere text-muted-foreground text-sm">
-                      {payment.reviewNote}
-                    </p>
-                  ) : null}
                 </article>
               ))}
             </div>
@@ -155,10 +200,9 @@ export default async function AdminPaymentsPage() {
                     <Th>Student</Th>
                     <Th>Plan</Th>
                     <Th>Amount</Th>
-                    <Th>UTR</Th>
+                    <Th>Note</Th>
                     <Th>Status</Th>
                     <Th>Reviewed</Th>
-                    <Th>Note</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,15 +213,14 @@ export default async function AdminPaymentsPage() {
                       </Td>
                       <Td>{getPlan(payment.planId).name}</Td>
                       <Td>₹{payment.amountInr.toLocaleString("en-IN")}</Td>
-                      <Td className="font-mono text-xs">{payment.utr}</Td>
-                      <Td className="capitalize">{payment.status}</Td>
+                      <Td className="font-mono text-xs">
+                        {paymentReference(payment)}
+                      </Td>
+                      <Td>{STATUS_LABEL[payment.status]}</Td>
                       <Td>
                         {payment.reviewedAt
                           ? formatDateTime(payment.reviewedAt)
                           : "—"}
-                      </Td>
-                      <Td className="max-w-64 wrap-anywhere">
-                        {payment.reviewNote ?? "—"}
                       </Td>
                     </tr>
                   ))}
@@ -204,7 +247,9 @@ function PaymentDetails({ payment }: { payment: PaymentWithEmail }) {
       <p className="text-muted-foreground text-xs">
         {formatDateTime(payment.createdAt)}
       </p>
-      <p className="mt-1 wrap-anywhere font-mono text-xs">UTR {payment.utr}</p>
+      <p className="mt-1 wrap-anywhere font-mono text-xs">
+        {paymentReference(payment)}
+      </p>
     </div>
   );
 }
@@ -219,7 +264,7 @@ function ApprovalPreview({
   if (!payment.userId) {
     return (
       <p className="text-muted-foreground text-sm">
-        Student account deleted. This payment can only be rejected.
+        Student account deleted. This request can only be rejected.
       </p>
     );
   }

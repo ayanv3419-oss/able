@@ -9,11 +9,11 @@ import { MemoryList } from "@/components/settings/memory-list";
 import { PlanStatusSection } from "@/components/settings/plan-status-section";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { SettingsSection } from "@/components/settings/settings-section";
+import { gateStudent } from "@/lib/access";
 import {
   getUserSettings,
   listMemories,
 } from "@/lib/db/personalization-queries";
-import { getEntitlement } from "@/lib/entitlements";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -27,10 +27,10 @@ async function SettingsContent() {
   }
 
   const userId = session.user.id;
-  const [settings, memories, entitlement] = await Promise.all([
+  const entitlement = await gateStudent(userId, "settings");
+  const [settings, memories] = await Promise.all([
     getUserSettings(userId),
     listMemories({ userId }),
-    getEntitlement(userId),
   ]);
 
   return (

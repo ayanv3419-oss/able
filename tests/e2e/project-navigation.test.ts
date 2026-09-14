@@ -271,7 +271,11 @@ test("blocks foreign, missing and malformed project URLs without exposing chats"
   const stranger = await browser.newContext();
   try {
     const otherPage = await stranger.newPage();
-    await signInWithTestLogin(otherPage, generateTestEmail());
+    const strangerEmail = generateTestEmail();
+    await signInWithTestLogin(otherPage, strangerEmail);
+    // A stranger without a plan would be sent to the plan page first.
+    const { seedPaidStudent } = await import("../db");
+    await seedPaidStudent(strangerEmail);
     for (const id of [data.projectId, randomUUID(), "not-a-project-id"]) {
       for (const suffix of ["", "/folder"]) {
         await otherPage.goto(`/project/${id}${suffix}`);

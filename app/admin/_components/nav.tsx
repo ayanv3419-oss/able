@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const adminLinks = [
   { href: "/admin", label: "Dashboard" },
-  { href: "/admin/payments", label: "Payments" },
+  { href: "/admin/payments", label: "Requests" },
   { href: "/admin/subscriptions", label: "Subscriptions" },
   { href: "/admin/refunds", label: "Refunds" },
   { href: "/admin/users", label: "Users" },

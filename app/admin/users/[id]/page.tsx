@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { daysLeft } from "@/lib/billing/rules";
+import { daysLeft, paymentNote } from "@/lib/billing/rules";
 import { getUserById } from "@/lib/db/account-queries";
 import {
   getCurrentSubscription,
@@ -17,6 +17,7 @@ import {
   Td,
   Th,
 } from "../../_components/section";
+import { UnblockButton } from "../../_components/unblock-button";
 import { formatDate, formatDateTime, formatUsdFromMicros } from "../../format";
 
 export const metadata: Metadata = {
@@ -85,6 +86,19 @@ export default async function AdminUserDetailPage({
           </dd>
           <dt className="text-muted-foreground">Joined</dt>
           <dd>{formatDate(user.createdAt)}</dd>
+          <dt className="text-muted-foreground">Access</dt>
+          <dd className="flex flex-wrap items-center gap-3">
+            {user.blockedAt ? (
+              <>
+                <span className="text-destructive">
+                  Blocked since {formatDateTime(user.blockedAt)}
+                </span>
+                <UnblockButton userId={user.id} />
+              </>
+            ) : (
+              "Not blocked"
+            )}
+          </dd>
         </dl>
       </Section>
 
@@ -105,7 +119,7 @@ export default async function AdminUserDetailPage({
               <tr>
                 <Th>Plan</Th>
                 <Th>Amount</Th>
-                <Th>UTR</Th>
+                <Th>Reference</Th>
                 <Th>Status</Th>
                 <Th>Submitted</Th>
                 <Th>Reviewed</Th>
@@ -117,7 +131,9 @@ export default async function AdminUserDetailPage({
                 <tr key={payment.id}>
                   <Td>{getPlan(payment.planId).name}</Td>
                   <Td>₹{payment.amountInr}</Td>
-                  <Td className="font-mono text-xs">{payment.utr}</Td>
+                  <Td className="font-mono text-xs">
+                    {payment.utr ?? paymentNote(payment.planId, user.id)}
+                  </Td>
                   <Td className="capitalize">{payment.status}</Td>
                   <Td>{formatDateTime(payment.createdAt)}</Td>
                   <Td>

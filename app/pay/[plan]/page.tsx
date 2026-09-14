@@ -6,15 +6,14 @@ import { Suspense } from "react";
 import { auth } from "@/app/(auth)/auth";
 import { BillingPageHeader } from "@/components/billing/billing-page-header";
 import { CopyUpiButton } from "@/components/billing/copy-upi-button";
-import { UtrForm } from "@/components/billing/utr-form";
+import { RequestButton } from "@/components/billing/request-button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { gateStudent } from "@/lib/access";
 import { getPaymentConfig } from "@/lib/billing/payment-config";
-import { buildUpiUri } from "@/lib/billing/rules";
-import { getPendingPaymentByUserId } from "@/lib/db/billing-queries";
+import { buildUpiUri, paymentNote } from "@/lib/billing/rules";
 import { getPlan, isPlanId } from "@/lib/plans";
 
 const QR_SIZE_PX = 260;
-const USER_ID_NOTE_LENGTH = 6;
 
 type Params = { plan: string };
 
@@ -48,10 +47,11 @@ async function PayContent({ params }: { params: Promise<Params> }) {
     redirect(`/login?callbackUrl=${encodeURIComponent(`/pay/${planParam}`)}`);
   }
 
+  // A student with a request already waiting, or a blocked student, is sent
+  // to the waiting or blocked screen instead.
+  await gateStudent(session.user.id, "pay");
+
   const plan = getPlan(planParam);
-  if (await getPendingPaymentByUserId(session.user.id)) {
-    redirect("/billing");
-  }
   const { upiId, payeeName } = await getPaymentConfig();
   if (!upiId || !/^[a-zA-Z0-9._-]+@[a-zA-Z0-9]+$/.test(upiId)) {
     return (
@@ -60,7 +60,7 @@ async function PayContent({ params }: { params: Promise<Params> }) {
       </p>
     );
   }
-  const note = `Able ${plan.id} ${session.user.id.slice(0, USER_ID_NOTE_LENGTH)}`;
+  const note = paymentNote(plan.id, session.user.id);
   const upiUri = buildUpiUri({
     amountInr: plan.priceInr,
     note,
@@ -102,16 +102,22 @@ async function PayContent({ params }: { params: Promise<Params> }) {
           Pay with UPI app
         </a>
         <p className="text-center text-muted-foreground text-xs">
-          Scan the QR code or tap the link above on your phone. The note "{note}
-          " is filled in for you.
+          Scan the QR code or tap the link above on your phone. The note{" "}
+          <span className="font-mono">{note}</span> is filled in for you.
         </p>
       </div>
 
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-background p-6">
         <h2 className="font-medium text-base">
-          After you've paid, tell us the reference number
+          After you've paid, send your request
         </h2>
-        <UtrForm planId={plan.id} />
+        <p className="text-muted-foreground text-sm">
+          The owner checks your payment in their UPI app and then allows your
+          request. If your app didn't fill in the note, add{" "}
+          <span className="font-mono text-foreground">{note}</span> so the owner
+          can find your payment.
+        </p>
+        <RequestButton planId={plan.id} />
       </div>
     </>
   );

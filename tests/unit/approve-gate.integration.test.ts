@@ -2,23 +2,26 @@ import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { PAYMENT_REJECTION_MESSAGE } from "@/lib/billing/rules";
-import { deleteUserAccount } from "@/lib/db/account-queries";
+import { deleteUserAccount, getUserById } from "@/lib/db/account-queries";
 import {
   approvePayment,
   countPendingPayments,
   createPayment,
+  listBlockedStudents,
   listPaymentsByUserId,
   listPendingPaymentsWithApproval,
   rejectPayment,
+  unblockStudent,
 } from "@/lib/db/billing-queries";
 import { db } from "@/lib/db/client";
 import { payment, subscription, user } from "@/lib/db/schema";
+import { getEntitlement } from "@/lib/entitlements";
 import { getPlan, type PlanId } from "@/lib/plans";
 
 const describeDb = process.env.TEST_POSTGRES_URL ? describe : describe.skip;
 const day = 86_400_000;
 
-describeDb("approve gate", () => {
+describeDb("request, allow, reject and unblock", () => {
   const users: string[] = [];
   const payments: string[] = [];
   async function student() {
@@ -29,16 +32,11 @@ describeDb("approve gate", () => {
     users.push(row.id);
     return row.id;
   }
-  async function pay(
-    userId: string,
-    planId: PlanId = "basic",
-    utr = randomUUID().replaceAll("-", "").slice(0, 24)
-  ) {
+  async function request(userId: string, planId: PlanId = "basic") {
     const row = await createPayment({
       amountInr: getPlan(planId).priceInr,
       planId,
       userId,
-      utr,
     });
     payments.push(row.id);
     return row;
@@ -50,6 +48,9 @@ describeDb("approve gate", () => {
       reviewNote: PAYMENT_REJECTION_MESSAGE,
     });
   }
+  async function allow(paymentId: string, now = new Date()) {
+    return await approvePayment({ now, paymentId, reviewer: "test" });
+  }
   afterAll(async () => {
     await Promise.all(users.map(deleteUserAccount));
     if (payments.length) {
@@ -58,69 +59,55 @@ describeDb("approve gate", () => {
     await db.$client.end();
   });
 
-  it("reuses rejected UTRs for the corrected plan and keeps the review history", async () => {
+  it("records a request with no reference number, one at a time", async () => {
     const userId = await student();
     const before = await countPendingPayments();
-    const original = await pay(userId, "plus");
+    const sent = await request(userId, "plus");
+    expect(sent.utr).toBeNull();
+    expect(sent.status).toBe("pending");
     expect(await countPendingPayments()).toBe(before + 1);
-    await reject(original.id);
-    expect(await countPendingPayments()).toBe(before);
-    const retry = await pay(userId, "basic", original.utr.toLowerCase());
-    await expect(
-      approvePayment({
-        now: new Date(),
-        paymentId: original.id,
-        reviewer: "test",
-      })
-    ).rejects.toThrow();
-    const approved = await approvePayment({
-      now: new Date(),
-      paymentId: retry.id,
-      reviewer: "test",
-    });
-    expect(approved.subscription.planId).toBe("basic");
+    await expect(request(userId, "basic")).rejects.toThrow();
+  });
+
+  it("blocks on reject, keeps the history and lets the student back after unblock", async () => {
+    const userId = await student();
+    const sent = await request(userId, "plus");
+    await reject(sent.id);
+    expect((await getUserById(userId))?.blockedAt).toBeInstanceOf(Date);
+    const blocked = await getEntitlement(userId);
+    expect(blocked.status).toBe("blocked");
+    expect(blocked.canSend).toBe(false);
+    expect((await listBlockedStudents()).map((row) => row.id)).toContain(
+      userId
+    );
+    await expect(request(userId, "basic")).rejects.toThrow("blocked");
+
+    await unblockStudent(userId);
+    expect((await getUserById(userId))?.blockedAt).toBeNull();
+    expect((await getEntitlement(userId)).status).toBe("none");
+    const retry = await request(userId, "basic");
+    const allowed = await allow(retry.id);
+    expect(allowed.subscription.planId).toBe("basic");
     expect(
-      approved.subscription.endsAt.getTime() -
-        approved.subscription.startsAt.getTime()
+      allowed.subscription.endsAt.getTime() -
+        allowed.subscription.startsAt.getTime()
     ).toBe(30 * day);
     const history = await listPaymentsByUserId(userId);
-    expect(history).toHaveLength(2);
-    expect(history.find((row) => row.id === original.id)).toMatchObject({
+    expect(history.find((row) => row.id === sent.id)).toMatchObject({
       reviewNote: PAYMENT_REJECTION_MESSAGE,
       status: "rejected",
     });
     expect(history.find((row) => row.id === retry.id)?.status).toBe("approved");
   });
 
-  it.each([
-    "pending",
-    "approved",
-    "refunded",
-  ] as const)("blocks a %s UTR even after an earlier rejection, across accounts", async (status) => {
+  it("blocks even a student who has an active plan", async () => {
     const userId = await student();
-    const old = await pay(userId);
-    await reject(old.id);
-    const active = await pay(userId, "basic", old.utr);
-    await db.update(payment).set({ status }).where(eq(payment.id, active.id));
-    await expect(
-      pay(await student(), "pro", old.utr.toLowerCase())
-    ).rejects.toThrow();
-  });
-
-  it("allows repeated rejections but only one simultaneous reuse across accounts", async () => {
-    const userId = await student();
-    const old = await pay(userId);
-    await reject(old.id);
-    const retry = await pay(userId, "plus", old.utr);
-    await reject(retry.id);
-    const [first, second] = await Promise.all([student(), student()]);
-    const results = await Promise.allSettled([
-      pay(first, "basic", old.utr),
-      pay(second, "plus", old.utr),
-    ]);
-    expect(
-      results.filter((result) => result.status === "fulfilled")
-    ).toHaveLength(1);
+    await allow((await request(userId, "basic")).id);
+    expect((await getEntitlement(userId)).canSend).toBe(true);
+    await reject((await request(userId, "plus")).id);
+    const entitlement = await getEntitlement(userId);
+    expect(entitlement.status).toBe("blocked");
+    expect(entitlement.canSend).toBe(false);
   });
 
   it("matches approval previews to new plans, queued renewals and switches", async () => {
@@ -130,15 +117,11 @@ describeDb("approve gate", () => {
       ["basic", "basic", "basic", "plus"] as const
     ).entries()) {
       // biome-ignore lint/performance/noAwaitInLoops: Each renewal depends on the previous approval.
-      const pending = await pay(userId, planId);
+      const pending = await request(userId, planId);
       const preview = (await listPendingPaymentsWithApproval(now, 200)).find(
         (row) => row.id === pending.id
       );
-      const approved = await approvePayment({
-        now,
-        paymentId: pending.id,
-        reviewer: "test",
-      });
+      const approved = await allow(pending.id, now);
       expect(preview?.approval.startsAt).toEqual(
         approved.subscription.startsAt
       );
@@ -157,15 +140,11 @@ describeDb("approve gate", () => {
     }
   });
 
-  it("resolves a simultaneous approve and reject only once", async () => {
+  it("resolves a simultaneous allow and reject only once", async () => {
     const userId = await student();
-    const pending = await pay(userId);
+    const pending = await request(userId);
     const results = await Promise.allSettled([
-      approvePayment({
-        now: new Date(),
-        paymentId: pending.id,
-        reviewer: "test",
-      }),
+      allow(pending.id),
       reject(pending.id),
     ]);
     expect(
@@ -180,5 +159,8 @@ describeDb("approve gate", () => {
       .from(subscription)
       .where(eq(subscription.paymentId, pending.id));
     expect(subscriptions).toHaveLength(resolved.status === "approved" ? 1 : 0);
+    expect(Boolean((await getUserById(userId))?.blockedAt)).toBe(
+      resolved.status === "rejected"
+    );
   });
 });

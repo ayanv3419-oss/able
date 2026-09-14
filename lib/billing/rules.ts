@@ -15,48 +15,18 @@ export const REFUND_WINDOW_DAYS = 7;
 export const RENEW_BANNER_DAYS = 3;
 
 export const PAYMENT_REJECTION_MESSAGE =
-  "Please check your UTR and submit it again for the plan you paid for, or contact support.";
+  "Your request was rejected, so your account is blocked. If you paid, contact support.";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const UTR_MIN_LENGTH = 10;
-const UTR_MAX_LENGTH = 24;
-const UTR_ALLOWED = /^[A-Z0-9]+$/;
-const UTR_SEPARATORS = /[\s-]/g;
-
-export type NormalizedUtr =
-  | { ok: true; utr: string }
-  | { ok: false; error: string };
+const NOTE_USER_CODE_LENGTH = 6;
 
 /**
- * Cleans up a UPI reference number the student typed: spaces and dashes are
- * dropped, letters are upper-cased, and the result must be 10 to 24 letters or
- * digits.
+ * The note the QR code and payment link fill in, for example "Able plus
+ * 1a2b3c". Requests carry no reference number, so the owner matches payments
+ * in their UPI app by this note, the amount and the time.
  */
-export function normalizeUtr(input: string): NormalizedUtr {
-  const utr = input.replace(UTR_SEPARATORS, "").toUpperCase();
-
-  if (utr.length === 0) {
-    return {
-      error: "Enter the UPI reference number from your payment app.",
-      ok: false,
-    };
-  }
-
-  if (!UTR_ALLOWED.test(utr)) {
-    return {
-      error: "The UPI reference number can contain only letters and digits.",
-      ok: false,
-    };
-  }
-
-  if (utr.length < UTR_MIN_LENGTH || utr.length > UTR_MAX_LENGTH) {
-    return {
-      error: `The UPI reference number must be ${UTR_MIN_LENGTH} to ${UTR_MAX_LENGTH} letters or digits.`,
-      ok: false,
-    };
-  }
-
-  return { ok: true, utr };
+export function paymentNote(planId: PlanId, userId: string): string {
+  return `Able ${planId} ${userId.slice(0, NOTE_USER_CODE_LENGTH)}`;
 }
 
 /** The subscription a student is on right now, as far as approval cares. */

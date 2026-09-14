@@ -76,9 +76,11 @@ export default async function AdminUsersPage({
                 <tr key={user.id}>
                   <Td>{user.email}</Td>
                   <Td>
-                    {currentSubscription
-                      ? `${getPlan(currentSubscription.planId).name} (active)`
-                      : "No active plan"}
+                    {user.blockedAt
+                      ? "Blocked"
+                      : currentSubscription
+                        ? `${getPlan(currentSubscription.planId).name} (active)`
+                        : "No active plan"}
                   </Td>
                   <Td>{formatUsdFromMicros(usage.costMicros)}</Td>
                   <Td>

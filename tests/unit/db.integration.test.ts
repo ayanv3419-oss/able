@@ -22,7 +22,6 @@ const describeDb = process.env.TEST_POSTGRES_URL ? describe : describe.skip;
 describeDb("the data layer against a real Postgres", () => {
   const stamp = Date.now();
   const email = `able-test-${stamp}@example.com`;
-  const utr = `TEST${stamp}`;
   let userId = "";
   let paymentId = "";
   let requestId = "";
@@ -57,15 +56,13 @@ describeDb("the data layer against a real Postgres", () => {
     const created = await createPayment({
       amountInr: 800,
       planId: "plus",
-      studentNote: "integration test",
       userId,
-      utr,
     });
 
     paymentId = created.id;
 
     expect(created.status).toBe("pending");
-    expect(created.utr).toBe(utr.toUpperCase());
+    expect(created.utr).toBeNull();
 
     const entitlement = await getEntitlement(userId);
 
@@ -74,13 +71,12 @@ describeDb("the data layer against a real Postgres", () => {
     expect(entitlement.canSend).toBe(false);
   });
 
-  it("refuses a second pending payment and a reused reference", async () => {
+  it("refuses a second pending request", async () => {
     await expect(
       createPayment({
         amountInr: 800,
         planId: "plus",
         userId,
-        utr: `OTHER${stamp}`,
       })
     ).rejects.toThrow();
 

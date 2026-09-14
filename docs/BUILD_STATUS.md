@@ -1,5 +1,14 @@
 # Local v1 build status
 
+## Payment workflow update, 15 September 2026
+
+- Follows the owner's board: plan page, UPI payment, a Request button with no reference number, then the owner allows or rejects. Rejecting blocks the student until the owner unblocks them on the Requests page or the student's detail page.
+- Students without a plan start on `/pricing`. A sent request shows `/waiting`, which opens the chat once allowed; a rejected one shows `/blocked`. Students whose plan ended can still open old chats. Admins are never redirected.
+- Built on the live approval page, with the PDF and research work rebased onto it (`02ceafc`; its migration is now `0006_feature_runs`). This adds migration `0007_request_flow` (`Payment.utr` nullable, `User.blockedAt`). The local database got `0005_approve_gate` by hand, because Drizzle skips migrations older than the last one applied.
+- Verified: 125 unit/database tests on a freshly migrated test database, and 31 browser scenarios across approval, complete flows, projects, pricing, home screen, sign-in and chat. The approval scenario covers the plan-page start, the Request button, the waiting screen, a confirmed Reject that blocks everywhere, Unblock, and Allow opening the chat. TypeScript and Biome pass.
+- Fixed a development-only connection leak: `lib/db/client.ts` opened a new pool on every hot reload and filled all 100 connections of the local database. It now keeps one pool per process and closes idle connections after 20 seconds.
+- Not pushed or deployed.
+
 ## Payment approval update, 14 September 2026
 
 - Built on `feat/approve-gate` in `D:\able-wt\approve-gate`. The isolated, no-login demo runs at http://localhost:3107/admin/payments with synthetic sample payments.

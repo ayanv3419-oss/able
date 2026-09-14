@@ -7,6 +7,7 @@ import {
   eq,
   gt,
   inArray,
+  isNotNull,
   isNull,
   lte,
   type SQL,
@@ -69,32 +70,30 @@ export type ReminderDue = {
 };
 
 /**
- * Records a payment a student says they made. A student may have only one
- * pending payment. A UPI reference can be reused only after rejection.
+ * Records a student's request after they pay by UPI. A student may have only
+ * one pending request, and a blocked student cannot send one.
  */
 export async function createPayment({
   amountInr,
   planId,
-  studentNote,
   userId,
-  utr,
 }: {
   userId: string;
   planId: PlanId;
   amountInr: number;
-  utr: string;
-  studentNote?: string | null;
 }): Promise<Payment> {
-  const normalizedUtr = utr.trim().toUpperCase();
   try {
     return await db.transaction(async (tx) => {
       const [student] = await tx
-        .select({ id: user.id })
+        .select({ blockedAt: user.blockedAt, id: user.id })
         .from(user)
         .where(eq(user.id, userId))
         .for("update");
       if (!student) {
         throw new ChatbotError("unauthorized:auth");
+      }
+      if (student.blockedAt) {
+        throw new ChatbotError("forbidden:account");
       }
       const [pending] = await tx
         .select({ id: payment.id })
@@ -106,14 +105,7 @@ export async function createPayment({
       }
       const [created] = await tx
         .insert(payment)
-        .values({
-          amountInr,
-          planId,
-          status: "pending",
-          studentNote: studentNote ?? null,
-          userId,
-          utr: normalizedUtr,
-        })
+        .values({ amountInr, planId, status: "pending", userId })
         .returning();
 
       return created;
@@ -123,7 +115,8 @@ export async function createPayment({
       throw error;
     }
     if (isUniqueViolation(error)) {
-      throw new ChatbotError("bad_request:payment", { cause: error });
+      // Two simultaneous requests race for the one-pending-request index.
+      throw new ChatbotError("forbidden:payment", { cause: error });
     }
 
     throw new ChatbotError("bad_request:database", { cause: error });
@@ -318,6 +311,10 @@ export async function approvePayment({
   });
 }
 
+/**
+ * Rejects a pending request and blocks the student, per the owner's board:
+ * a rejection stops the whole cycle until the owner unblocks them.
+ */
 export async function rejectPayment({
   paymentId,
   reviewNote,
@@ -327,22 +324,60 @@ export async function rejectPayment({
   reviewer: string;
   reviewNote: string;
 }): Promise<Payment> {
+  return await db.transaction(async (tx) => {
+    const now = new Date();
+    const [updated] = await tx
+      .update(payment)
+      .set({
+        reviewedAt: now,
+        reviewedBy: reviewer,
+        reviewNote,
+        status: "rejected",
+      })
+      .where(and(eq(payment.id, paymentId), eq(payment.status, "pending")))
+      .returning();
+
+    if (!updated) {
+      throw new ChatbotError("not_found:payment");
+    }
+
+    if (updated.userId) {
+      await tx
+        .update(user)
+        .set({ blockedAt: now })
+        .where(eq(user.id, updated.userId));
+    }
+
+    return updated;
+  });
+}
+
+/** Lets a blocked student use Able and send requests again. */
+export async function unblockStudent(userId: string): Promise<void> {
   const [updated] = await db
-    .update(payment)
-    .set({
-      reviewedAt: new Date(),
-      reviewedBy: reviewer,
-      reviewNote,
-      status: "rejected",
-    })
-    .where(and(eq(payment.id, paymentId), eq(payment.status, "pending")))
-    .returning();
+    .update(user)
+    .set({ blockedAt: null })
+    .where(eq(user.id, userId))
+    .returning({ id: user.id });
 
   if (!updated) {
-    throw new ChatbotError("not_found:payment");
+    throw new ChatbotError("not_found:account");
   }
+}
 
-  return updated;
+export type BlockedStudent = { id: string; email: string; blockedAt: Date };
+
+/** Blocked students, most recently blocked first. */
+export async function listBlockedStudents(): Promise<BlockedStudent[]> {
+  const rows = await db
+    .select({ blockedAt: user.blockedAt, email: user.email, id: user.id })
+    .from(user)
+    .where(isNotNull(user.blockedAt))
+    .orderBy(desc(user.blockedAt));
+
+  return rows.flatMap(({ blockedAt, email, id }) =>
+    blockedAt ? [{ blockedAt, email, id }] : []
+  );
 }
 
 /** The subscription that is running right now, if any. */

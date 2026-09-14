@@ -4,6 +4,7 @@
  */
 
 import { RENEW_BANNER_DAYS, daysLeft as remainingDays } from "./billing/rules";
+import { getUserById } from "./db/account-queries";
 import {
   getCurrentSubscription,
   getLatestSubscription,
@@ -19,10 +20,16 @@ export type BlockReason =
   | "no-plan"
   | "pending"
   | "expired"
+  | "blocked"
   | "daily-limit"
   | "fair-use-limit";
 
-export type EntitlementStatus = "none" | "pending" | "active" | "expired";
+export type EntitlementStatus =
+  | "none"
+  | "pending"
+  | "active"
+  | "expired"
+  | "blocked";
 
 export type EntitlementSummary = {
   planId: PlanId | null;
@@ -60,6 +67,8 @@ export type EntitlementInput = {
   projectsUsed: number;
   /** Counted cost since midnight Asia/Kolkata, in micro-dollars. */
   spentMicrosToday: number;
+  /** True after the owner rejects a request, until they unblock the student. */
+  blocked?: boolean;
 };
 
 const DEFAULT_REASONING_EFFORT: ReasoningEffort = "low";
@@ -73,12 +82,33 @@ function isCurrent(subscription: EntitlementSubscription, now: Date): boolean {
 }
 
 export function computeEntitlement({
+  blocked = false,
   hasPendingPayment,
   now,
   projectsUsed,
   spentMicrosToday,
   subscription,
 }: EntitlementInput): EntitlementSummary {
+  // A rejected request blocks the whole cycle, even over a paid period.
+  if (blocked) {
+    return {
+      blockReason: "blocked",
+      canSend: false,
+      daysLeft: 0,
+      displayUnlimited: false,
+      endsAt: null,
+      hasPendingPayment,
+      messagesLeftToday: null,
+      planId: null,
+      planName: null,
+      projectLimit: 0,
+      projectsUsed,
+      reasoningEffort: DEFAULT_REASONING_EFFORT,
+      showRenewBanner: false,
+      status: "blocked",
+    };
+  }
+
   const current =
     subscription && isCurrent(subscription, now) ? subscription : null;
 
@@ -144,7 +174,8 @@ export async function getEntitlement(
   userId: string,
   now = new Date()
 ): Promise<EntitlementSummary> {
-  const [current, pendingPayment, projectsUsed] = await Promise.all([
+  const [student, current, pendingPayment, projectsUsed] = await Promise.all([
+    getUserById(userId),
     getCurrentSubscription(userId, now),
     getPendingPaymentByUserId(userId),
     countProjects(userId),
@@ -156,6 +187,7 @@ export async function getEntitlement(
     : 0;
 
   return computeEntitlement({
+    blocked: Boolean(student?.blockedAt),
     hasPendingPayment: pendingPayment !== null,
     now,
     projectsUsed,

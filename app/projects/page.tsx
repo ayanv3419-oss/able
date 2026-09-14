@@ -7,6 +7,7 @@ import { auth } from "@/app/(auth)/auth";
 import { CreateProjectDialog } from "@/components/project/create-project-dialog";
 import { ProjectActions } from "@/components/project/project-actions";
 import { ProjectLoading } from "@/components/project/project-loading";
+import { gateStudent } from "@/lib/access";
 import { listProjects } from "@/lib/db/project-queries";
 
 export const metadata: Metadata = { title: "Projects" };
@@ -24,6 +25,7 @@ async function ProjectsContent() {
   if (!session?.user?.id) {
     redirect("/login");
   }
+  await gateStudent(session.user.id, "projects");
   const projects = (await listProjects(session.user.id)).sort((a, b) =>
     byName.compare(a.name, b.name)
   );

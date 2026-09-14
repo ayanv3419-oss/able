@@ -10,6 +10,12 @@ type Copy = {
 };
 
 const COPY: Record<BlockReason, Copy> = {
+  blocked: {
+    body: "Your request was rejected, so your account is blocked. If you paid, contact support.",
+    cta: "What to do next",
+    href: "/blocked",
+    title: "Request rejected",
+  },
   "daily-limit": {
     body: "You have used all of today's messages. They reset at midnight India time.",
     cta: "See plans",
@@ -35,9 +41,9 @@ const COPY: Record<BlockReason, Copy> = {
     title: "Choose a plan",
   },
   pending: {
-    body: "Your payment is waiting for approval. Check your payment status here.",
-    cta: "Check payment status",
-    href: "/billing",
+    body: "Your request is waiting for the owner to allow it.",
+    cta: "See request status",
+    href: "/waiting",
     title: "Waiting for approval",
   },
 };

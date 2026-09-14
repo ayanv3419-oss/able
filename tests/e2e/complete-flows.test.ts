@@ -187,13 +187,12 @@ baseTest(
     expect(
       (await (await page.request.get("/api/entitlements")).json()).canSend
     ).toBe(false);
-    const utr = randomUUID().replaceAll("-", "").slice(0, 24).toUpperCase();
     await page.goto("/pay/basic");
-    await page.getByLabel("UPI reference number (UTR)").fill(utr);
     await page
-      .getByRole("button", { name: "I've paid — submit reference number" })
+      .getByRole("button", { name: "I've paid — send request" })
       .click();
-    await expect(page).toHaveURL(/\/billing$/);
+    await expect(page).toHaveURL(/\/waiting$/);
+    await page.goto("/billing");
     await expect(
       page
         .getByRole("row")
@@ -207,8 +206,8 @@ baseTest(
       await adminPage.goto("/admin/payments");
       await adminPage
         .getByRole("row")
-        .filter({ hasText: utr })
-        .getByRole("button", { exact: true, name: "Approve" })
+        .filter({ hasText: studentEmail })
+        .getByRole("button", { exact: true, name: "Allow" })
         .click();
       await expect
         .poll(

@@ -32,7 +32,6 @@ describeDb("concurrent billing and project limits", () => {
       amountInr: 250,
       planId,
       userId,
-      utr: randomUUID().replaceAll("-", "").slice(0, 24),
     });
     payments.push(created.id);
     return created.id;

@@ -20,6 +20,7 @@ export type Surface =
   | "refund"
   | "project"
   | "research"
+  | "account"
   | "plan";
 
 export type ErrorCode = `${ErrorType}:${Surface}`;
@@ -27,6 +28,7 @@ export type ErrorCode = `${ErrorType}:${Surface}`;
 export type ErrorVisibility = "response" | "log" | "none";
 
 export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
+  account: "response",
   api: "response",
   auth: "response",
   chat: "response",
@@ -125,10 +127,12 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
     case "bad_request:document":
       return "The request to create or update the document was invalid. Please check your input and try again.";
 
-    case "bad_request:payment":
-      return "That UPI reference number has already been submitted. Check the number and try again.";
     case "forbidden:payment":
-      return "You already have a payment waiting for approval. Please wait for it to be reviewed.";
+      return "You already have a request waiting for approval. Please wait for it to be reviewed.";
+    case "forbidden:account":
+      return "Your request was rejected, so your account is blocked. If you paid, contact support.";
+    case "not_found:account":
+      return "That student was not found.";
     case "not_found:payment":
       return "That payment was not found.";
 

@@ -1,19 +1,17 @@
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
-import { normalizeUtr } from "@/lib/billing/rules";
 import { createPayment } from "@/lib/db/billing-queries";
 import { ChatbotError } from "@/lib/errors";
 import { getPlan, isPlanId } from "@/lib/plans";
 
 const bodySchema = z.object({
   planId: z.string(),
-  utr: z.string(),
 });
 
 /**
- * Records a payment a student says they made, per docs/SPEC.md §7 Pay. The
- * owner reviews it by hand on the admin page; this route only validates the
- * UTR, resolves the plan's rupee amount, and stores a pending `Payment`.
+ * Records a student's request after they pay by UPI, per docs/SPEC.md §7 Pay.
+ * The owner allows or rejects it by hand on the admin page; this route only
+ * resolves the plan's rupee amount and stores a pending request.
  */
 export async function POST(request: Request) {
   const session = await auth();
@@ -29,18 +27,12 @@ export async function POST(request: Request) {
   } catch {
     return new ChatbotError(
       "bad_request:api",
-      "planId and utr are required."
+      "planId is required."
     ).toResponse();
   }
 
   if (!isPlanId(body.planId)) {
     return new ChatbotError("bad_request:api", "Unknown plan.").toResponse();
-  }
-
-  const normalized = normalizeUtr(body.utr);
-
-  if (!normalized.ok) {
-    return new ChatbotError("bad_request:api", normalized.error).toResponse();
   }
 
   const plan = getPlan(body.planId);
@@ -50,7 +42,6 @@ export async function POST(request: Request) {
       amountInr: plan.priceInr,
       planId: plan.id,
       userId: session.user.id,
-      utr: normalized.utr,
     });
 
     return Response.json({ payment: created }, { status: 201 });

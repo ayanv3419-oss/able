@@ -10,15 +10,28 @@ import { PaywallCard } from "@/components/billing/paywall-card";
 import { RefundRequestForm } from "@/components/billing/refund-request-form";
 import { UsageBanner } from "@/components/billing/usage-banner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { gateStudent } from "@/lib/access";
 import { isRefundEligible } from "@/lib/billing/rules";
 import { listPaymentsByUserId } from "@/lib/db/billing-queries";
 import { db } from "@/lib/db/client";
-import { refundRequest } from "@/lib/db/schema";
-import { getEntitlement } from "@/lib/entitlements";
+import { type Payment, refundRequest } from "@/lib/db/schema";
+import { getPlan } from "@/lib/plans";
 
 export const metadata: Metadata = {
   title: "Billing",
 };
+
+/** Names a payment by plan and date, since requests carry no reference number. */
+function paymentLabel(item: Payment): string {
+  const date = item.createdAt.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+  });
+
+  return `${getPlan(item.planId).name} payment of ${date}`;
+}
 
 /**
  * `auth()` and every query below are dynamic under `cacheComponents`, so
@@ -36,7 +49,7 @@ async function BillingContent() {
   const now = new Date();
 
   const [entitlement, payments] = await Promise.all([
-    getEntitlement(userId, now),
+    gateStudent(userId, "billing"),
     listPaymentsByUserId(userId),
   ]);
 
@@ -72,22 +85,25 @@ async function BillingContent() {
         <PaymentHistoryTable payments={payments} />
       </section>
 
-      {requests.map((request) => (
-        <p
-          className="rounded-xl border p-4 text-sm"
-          key={request.id}
-          role="status"
-        >
-          Refund for reference{" "}
-          {payments.find((item) => item.id === request.paymentId)?.utr}:{" "}
-          {request.status === "open"
-            ? "Awaiting review"
-            : request.status === "refunded"
-              ? "Paid back"
-              : "Declined"}
-          .
-        </p>
-      ))}
+      {requests.map((request) => {
+        const paid = payments.find((item) => item.id === request.paymentId);
+
+        return (
+          <p
+            className="rounded-xl border p-4 text-sm"
+            key={request.id}
+            role="status"
+          >
+            Refund for your {paid ? paymentLabel(paid) : "payment"}:{" "}
+            {request.status === "open"
+              ? "Awaiting review"
+              : request.status === "refunded"
+                ? "Paid back"
+                : "Declined"}
+            .
+          </p>
+        );
+      })}
       {refundable.map((item) => (
         <section
           className="flex flex-col gap-3 rounded-xl border border-border p-5"
@@ -95,7 +111,7 @@ async function BillingContent() {
         >
           <div className="flex flex-col gap-1">
             <h2 className="font-medium text-lg">
-              Request a refund — {item.utr}
+              Request a refund — {paymentLabel(item)}
             </h2>
             <p className="text-muted-foreground text-sm">
               Within 7 days of approval, you can ask for your money back. The
