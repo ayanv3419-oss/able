@@ -15,7 +15,7 @@ export function Greeting({ name }: { name: string }) {
   return (
     <motion.h1
       animate={{ opacity: 1, y: 0 }}
-      className="min-h-8 px-4 text-center font-semibold text-2xl text-foreground tracking-tight md:min-h-9 md:text-3xl"
+      className="min-h-8 max-w-[calc(100%-1rem)] px-2 text-center font-semibold text-2xl text-foreground tracking-tight md:min-h-9 md:text-3xl"
       initial={{ opacity: 0, y: 10 }}
       transition={{ delay: 0.35, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
     >

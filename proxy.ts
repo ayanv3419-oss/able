@@ -12,6 +12,7 @@ const publicPages = [
   "/refunds",
   "/contact",
   "/pricing",
+  "/download",
 ];
 
 function isPublicPath(pathname: string) {

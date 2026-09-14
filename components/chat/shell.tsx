@@ -159,7 +159,7 @@ export function ChatShell({ greetingName }: { greetingName: string }) {
               votes={votes}
             />
 
-            <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl flex-col gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
+            <div className="sticky bottom-0 z-10 mx-auto flex w-full max-w-4xl flex-col gap-2 border-t-0 bg-background/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl supports-[backdrop-filter]:bg-background/80 md:px-4 md:pb-4">
               {!isReadonly && entitlement && (
                 <PlanNotice entitlement={entitlement} />
               )}
