@@ -94,16 +94,25 @@ export async function saveChat({
   userId,
   title,
   visibility,
+  contextFolderId,
+  studyContextId,
+  studyMode,
 }: {
   id: string;
   userId: string;
   title: string;
   visibility: VisibilityType;
+  contextFolderId?: string | null;
+  studyContextId?: string | null;
+  studyMode?: Chat["studyMode"];
 }) {
   try {
     return await db.insert(chat).values({
+      contextFolderId: contextFolderId ?? null,
       createdAt: new Date(),
       id,
+      studyContextId: studyContextId ?? null,
+      studyMode: studyMode ?? null,
       title,
       userId,
       visibility,

@@ -68,6 +68,46 @@ export const user = pgTable(
 
 export type User = InferSelectModel<typeof user>;
 
+export const contextFolder = pgTable(
+  "ContextFolder",
+  {
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    name: varchar("name", { length: 60 }).notNull(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+  },
+  (table) => [index("ContextFolder_userId_idx").on(table.userId)]
+);
+
+export type ContextFolder = InferSelectModel<typeof contextFolder>;
+
+/** Pasted study material. Its text becomes immutable ten minutes after save. */
+export const studyContext = pgTable(
+  "StudyContext",
+  {
+    content: text("content").notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    folderId: uuid("folderId")
+      .notNull()
+      .references(() => contextFolder.id),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    title: varchar("title", { length: 120 }).notNull(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+  },
+  (table) => [
+    index("StudyContext_user_created_idx").on(table.userId, table.createdAt),
+    index("StudyContext_folder_idx").on(table.folderId),
+  ]
+);
+
+export type StudyContext = InferSelectModel<typeof studyContext>;
+
 export const project = pgTable("Project", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -82,10 +122,19 @@ export const project = pgTable("Project", {
 export type Project = InferSelectModel<typeof project>;
 
 export const chat = pgTable("Chat", {
+  contextFolderId: uuid("contextFolderId").references(() => contextFolder.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("createdAt").notNull(),
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   projectId: uuid("projectId").references(() => project.id, {
     onDelete: "set null",
+  }),
+  studyContextId: uuid("studyContextId").references(() => studyContext.id, {
+    onDelete: "set null",
+  }),
+  studyMode: varchar("studyMode", {
+    enum: ["lesson", "explain", "summary", "quiz", "important"],
   }),
   title: text("title").notNull(),
   userId: uuid("userId")

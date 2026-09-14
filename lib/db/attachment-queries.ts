@@ -3,7 +3,7 @@ import "server-only";
 import { and, count, eq, gte, inArray } from "drizzle-orm";
 import { istDayStart } from "../metering";
 import { db } from "./client";
-import { type Attachment, attachment, user } from "./schema";
+import { type Attachment, attachment, studyContext, user } from "./schema";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -19,16 +19,28 @@ export async function createAttachmentWithinLimit(
       .where(eq(user.id, input.userId))
       .for("update");
     if (limit !== null) {
-      const [used] = await tx
-        .select({ value: count() })
-        .from(attachment)
-        .where(
-          and(
-            eq(attachment.userId, input.userId),
-            gte(attachment.createdAt, istDayStart(new Date()))
-          )
-        );
-      if (used.value >= limit) {
+      const since = istDayStart(new Date());
+      const [[files], [contexts]] = await Promise.all([
+        tx
+          .select({ value: count() })
+          .from(attachment)
+          .where(
+            and(
+              eq(attachment.userId, input.userId),
+              gte(attachment.createdAt, since)
+            )
+          ),
+        tx
+          .select({ value: count() })
+          .from(studyContext)
+          .where(
+            and(
+              eq(studyContext.userId, input.userId),
+              gte(studyContext.createdAt, since)
+            )
+          ),
+      ]);
+      if (files.value + contexts.value >= limit) {
         return null;
       }
     }

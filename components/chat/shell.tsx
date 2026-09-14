@@ -44,6 +44,7 @@ export function ChatShell({ greetingName }: { greetingName: string }) {
     input,
     setInput,
     visibilityType,
+    studyMode,
     isReadonly,
     isLoading,
     votes,
@@ -107,6 +108,18 @@ export function ChatShell({ greetingName }: { greetingName: string }) {
     setInput("");
   }, [editingMessage, input, regenerate, setInput, setMessages]);
 
+  const handleNextLessonPart = useCallback(() => {
+    sendMessage({
+      parts: [
+        {
+          text: "Continue with the next part of this lesson.",
+          type: "text",
+        },
+      ],
+      role: "user",
+    });
+  }, [sendMessage]);
+
   return (
     <>
       <div className="flex h-dvh w-full flex-row overflow-hidden">
@@ -128,6 +141,9 @@ export function ChatShell({ greetingName }: { greetingName: string }) {
               isReadonly={isReadonly || !canSend}
               messages={messages}
               onEditMessage={handleEditMessage}
+              onNextLessonPart={
+                studyMode === "lesson" ? handleNextLessonPart : undefined
+              }
               regenerate={regenerate}
               setMessages={setMessages}
               status={status}

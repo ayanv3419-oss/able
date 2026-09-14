@@ -5,6 +5,7 @@ import { db } from "./client";
 import {
   attachment,
   chat,
+  contextFolder,
   document,
   memory,
   message,
@@ -12,6 +13,7 @@ import {
   project,
   refundRequest,
   stream,
+  studyContext,
   subscription,
   suggestion,
   type User,
@@ -74,6 +76,8 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     await tx.delete(suggestion).where(eq(suggestion.userId, userId));
     await tx.delete(document).where(eq(document.userId, userId));
     await tx.delete(chat).where(eq(chat.userId, userId));
+    await tx.delete(studyContext).where(eq(studyContext.userId, userId));
+    await tx.delete(contextFolder).where(eq(contextFolder.userId, userId));
     await tx.delete(attachment).where(eq(attachment.userId, userId));
     await tx.delete(memory).where(eq(memory.userId, userId));
     await tx.delete(userSettings).where(eq(userSettings.userId, userId));

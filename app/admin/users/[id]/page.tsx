@@ -7,9 +7,11 @@ import {
   getLatestSubscription,
   listPaymentsByUserId,
 } from "@/lib/db/billing-queries";
+import { listStudyContextsForUser } from "@/lib/db/context-queries";
 import { usageSummaryForUser } from "@/lib/db/usage-queries";
 import { istDayStart } from "@/lib/metering";
 import { getPlan } from "@/lib/plans";
+import { RemoveContextButton } from "../../_components/remove-context-button";
 import {
   EmptyState,
   Section,
@@ -53,6 +55,7 @@ export default async function AdminUserDetailPage({
     usageToday,
     usageLast7Days,
     usageLast30Days,
+    contexts,
   ] = await Promise.all([
     getCurrentSubscription(user.id, now),
     getLatestSubscription(user.id),
@@ -66,6 +69,7 @@ export default async function AdminUserDetailPage({
       since: new Date(now.getTime() - 30 * DAY_MS),
       userId: user.id,
     }),
+    listStudyContextsForUser(user.id),
   ]);
 
   return (
@@ -142,6 +146,38 @@ export default async function AdminUserDetailPage({
                       : "—"}
                   </Td>
                   <Td>{payment.reviewNote ?? "—"}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableShell>
+        )}
+      </Section>
+
+      <Section title="Stored Context">
+        {contexts.length === 0 ? (
+          <EmptyState>This student has no saved study material.</EmptyState>
+        ) : (
+          <TableShell>
+            <thead>
+              <tr>
+                <Th>Title</Th>
+                <Th>Folder</Th>
+                <Th>Saved</Th>
+                <Th>Support action</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {contexts.map((material) => (
+                <tr key={material.id}>
+                  <Td>{material.title}</Td>
+                  <Td>{material.folderName}</Td>
+                  <Td>{formatDateTime(material.createdAt)}</Td>
+                  <Td>
+                    <RemoveContextButton
+                      materialId={material.id}
+                      userId={user.id}
+                    />
+                  </Td>
                 </tr>
               ))}
             </tbody>

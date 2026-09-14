@@ -38,6 +38,7 @@ import { updateDocument } from "@/lib/ai/tools/update-document";
 import { usageForBilling } from "@/lib/ai/usage";
 import { isProductionEnvironment } from "@/lib/constants";
 import { getAttachments } from "@/lib/db/attachment-queries";
+import { loadStudyMaterialForChat } from "@/lib/db/context-queries";
 import { finishFeature, reserveFeature } from "@/lib/db/feature-queries";
 import {
   createStreamId,
@@ -432,6 +433,13 @@ export async function POST(request: Request) {
       userId,
     });
     const userSettings = personal.settings;
+    const studyMaterials = chat
+      ? await loadStudyMaterialForChat({
+          folderId: chat.contextFolderId,
+          studyContextId: chat.studyContextId,
+          userId,
+        })
+      : [];
 
     const resolvedMessages = await resolveAttachmentParts(uiMessages, userId);
     const textLength = resolvedMessages.reduce(
@@ -614,6 +622,7 @@ export async function POST(request: Request) {
             systemPrompt({
               personalization: personal.context,
               requestHints,
+              studyMaterials,
             }) + (researchInstructions ? `\n\n${researchInstructions}` : ""),
           messages: modelMessages,
           model: getChatModel(),

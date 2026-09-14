@@ -8,6 +8,7 @@ import { useCallback } from "react";
 import { AbleMark } from "@/components/brand/logo";
 import { SidebarHistory } from "@/components/chat/sidebar-history";
 import { SidebarUserNav } from "@/components/chat/sidebar-user-nav";
+import { ContextNav } from "@/components/context/context-nav";
 import { ProjectsNav } from "@/components/project/projects-nav";
 import {
   Sidebar,
@@ -100,7 +101,12 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        {user ? <ProjectsNav /> : null}
+        {user ? (
+          <>
+            <ProjectsNav />
+            <ContextNav />
+          </>
+        ) : null}
         <SidebarHistory user={user} />
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border pt-2 pb-3">

@@ -320,7 +320,12 @@ export const MessageBranchPage = ({
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
-const streamdownPlugins = { cjk, code, math, mermaid };
+// @streamdown/mermaid currently carries Mermaid 11 types while the app uses
+// Mermaid 12. The runtime plugin contract is unchanged; bridge the duplicate
+// dependency types until the package updates its peer.
+const streamdownPlugins = { cjk, code, math, mermaid } as unknown as NonNullable<
+  ComponentProps<typeof Streamdown>["plugins"]
+>;
 
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (

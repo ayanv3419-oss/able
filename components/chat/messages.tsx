@@ -1,6 +1,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { ArrowDownIcon } from "lucide-react";
+import { ArrowDownIcon, ChevronRightIcon } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
@@ -25,6 +26,7 @@ type MessagesProps = {
   greetingName: string;
   /** Suggested prompts shown right under the greeting. */
   suggestions?: ReactNode;
+  onNextLessonPart?: () => void;
 };
 
 function PureMessages({
@@ -41,6 +43,7 @@ function PureMessages({
   onEditMessage,
   greetingName,
   suggestions,
+  onNextLessonPart,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -117,6 +120,21 @@ function PureMessages({
           {status === "submitted" && messages.at(-1)?.role !== "assistant" && (
             <ThinkingMessage />
           )}
+
+          {onNextLessonPart &&
+          status === "ready" &&
+          messages.at(-1)?.role === "assistant" ? (
+            <div className="pl-10">
+              <Button
+                onClick={onNextLessonPart}
+                size="sm"
+                type="button"
+                variant="secondary"
+              >
+                Next part <ChevronRightIcon />
+              </Button>
+            </div>
+          ) : null}
 
           <div
             className="min-h-[24px] min-w-[24px] shrink-0"

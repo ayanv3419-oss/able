@@ -201,7 +201,12 @@ export type ReasoningContentProps = HTMLAttributes<HTMLDivElement> & {
   children: string;
 };
 
-const streamdownPlugins = { cjk, code, math, mermaid };
+// @streamdown/mermaid currently carries Mermaid 11 types while the app uses
+// Mermaid 12. The runtime plugin contract is unchanged; bridge the duplicate
+// dependency types until the package updates its peer.
+const streamdownPlugins = { cjk, code, math, mermaid } as unknown as NonNullable<
+  ComponentProps<typeof Streamdown>["plugins"]
+>;
 
 export const ReasoningContent = memo(
   ({ className, children, ...props }: ReasoningContentProps) => {

@@ -25,6 +25,7 @@ import { useAutoResume } from "@/hooks/use-auto-resume";
 import { ENTITLEMENT_URL } from "@/hooks/use-entitlement";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
+import type { TeachingMode } from "@/lib/study-context";
 import type { ChatMessage } from "@/lib/types";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 
@@ -47,6 +48,7 @@ type ActiveChatContextValue = {
   setWebSearch: Dispatch<SetStateAction<boolean>>;
   deepResearch: boolean;
   setDeepResearch: Dispatch<SetStateAction<boolean>>;
+  studyMode: TeachingMode | null;
 };
 
 const ActiveChatContext = createContext<ActiveChatContextValue | null>(null);
@@ -212,6 +214,12 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
 
   const hasAppendedQueryRef = useRef(false);
   useEffect(() => {
+    // Pre-created chats (for example Context lessons) must finish loading their
+    // empty persisted history before the query is sent. Otherwise that late
+    // history response can replace the optimistic user message mid-stream.
+    if (!isNewChat && !chatData) {
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const query = params.get("query");
     if (query && !hasAppendedQueryRef.current) {
@@ -226,7 +234,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
         role: "user" as const,
       });
     }
-  }, [sendMessage, chatId]);
+  }, [chatData, chatId, isNewChat, sendMessage]);
 
   useAutoResume({
     autoResume: !isNewChat && !!chatData,
@@ -262,6 +270,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       setWebSearch,
       status,
       stop,
+      studyMode: chatData?.studyMode ?? null,
       visibilityType: visibility,
       votes,
       webSearch,
@@ -283,6 +292,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       votes,
       webSearch,
       deepResearch,
+      chatData?.studyMode,
     ]
   );
 
