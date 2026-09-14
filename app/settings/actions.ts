@@ -59,7 +59,7 @@ export async function updateProfileAction(
     displayName: formData.get("displayName") ?? "",
     interests: formData.get("interests") ?? "",
     learningPreferences: formData.get("learningPreferences") ?? "",
-    preferredLanguage: formData.get("preferredLanguage") ?? "auto",
+    preferredLanguage: formData.get("preferredLanguage") ?? "English",
     responsePreferences: formData.get("responsePreferences") ?? "",
     role: formData.get("role") ?? "",
   });

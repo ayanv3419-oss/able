@@ -22,11 +22,8 @@ const PLACEHOLDERS: Record<ProfileFieldKey, string> = {
 const SHORT_FIELDS = new Set<ProfileFieldKey>(["displayName", "role"]);
 
 const LANGUAGE_OPTIONS = [
-  { label: "Match the language I write in", value: "auto" },
   { label: "English", value: "English" },
   { label: "Hindi", value: "Hindi" },
-  { label: "Hinglish", value: "Hinglish" },
-  { label: "Gujarati", value: "Gujarati" },
 ] as const;
 
 /**
@@ -98,8 +95,8 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
           ))}
         </select>
         <p className="text-muted-foreground text-sm">
-          Able uses this unless you ask for a different language in your
-          message.
+          Hindi replies use English letters, like “mera naam Ayan hai”. You can
+          also ask to switch between English and Roman Hindi in chat.
         </p>
       </div>
 

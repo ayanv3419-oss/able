@@ -151,7 +151,12 @@ test("saves settings and creates a project with persistent instructions", async 
     .fill("Ayan");
   await page
     .getByRole("combobox", { exact: true, name: "Reply language" })
-    .selectOption("Hinglish");
+    .selectOption("Hindi");
+  await expect(
+    page
+      .getByRole("combobox", { exact: true, name: "Reply language" })
+      .getByRole("option")
+  ).toHaveText(["English", "Hindi"]);
   await page.getByRole("button", { exact: true, name: "Save profile" }).click();
   await expect(page.getByText("Profile saved", { exact: true })).toBeVisible();
   await page.reload();
@@ -160,7 +165,7 @@ test("saves settings and creates a project with persistent instructions", async 
   ).toHaveValue("Ayan");
   await expect(
     page.getByRole("combobox", { exact: true, name: "Reply language" })
-  ).toHaveValue("Hinglish");
+  ).toHaveValue("Hindi");
   await page.goto("/projects");
   await page.getByRole("button", { exact: true, name: "New project" }).click();
   await page

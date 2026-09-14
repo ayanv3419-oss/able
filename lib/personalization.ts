@@ -1,12 +1,21 @@
 import { z } from "zod";
 
+export const ROMAN_HINDI = "Roman Hindi (Hindi in English letters)";
+
 export const profileSchema = z.object({
   displayName: z.string().trim().max(80).default(""),
   interests: z.string().trim().max(400).default(""),
   learningPreferences: z.string().trim().max(400).default(""),
-  preferredLanguage: z
-    .enum(["auto", "English", "Hindi", "Hinglish", "Gujarati"])
-    .default("auto"),
+  preferredLanguage: z.preprocess(
+    // Normalize older saved choices without dropping the student's profile.
+    (value) =>
+      value === "Hinglish"
+        ? "Hindi"
+        : value === "Gujarati" || value === "auto"
+          ? "English"
+          : value,
+    z.enum(["English", "Hindi"]).default("English")
+  ),
   responsePreferences: z.string().trim().max(400).default(""),
   role: z.string().trim().max(120).default(""),
 });
@@ -21,48 +30,31 @@ export const PROFILE_FIELDS = [
   { key: "responsePreferences", label: "Response preferences", maxLength: 400 },
 ] as const;
 
-/** A hint for the model; an explicit language request takes precedence. */
-export function responseLanguage(input: string, preferred = "auto") {
+/** Replies use English or Roman Hindi; Hindi never selects Devanagari output. */
+export function responseLanguage(input: string, preferred = "English") {
   const explicit = [
     ...input.matchAll(
-      /(?:in|into|using|speak|use|reply|respond|answer)\s+(English|Hindi|Hinglish|Gujarati)\b|\b(English|Hindi|Hinglish|Gujarati)\s+(?:mein|me|mai|ma)\b/gi
+      /(?:in|into|using|speak|use|reply|respond|answer)\s+(English|Roman Hindi|Hindi|Hinglish)\b|\b(English|Roman Hindi|Hindi|Hinglish)\s+(?:mein|me|mai|ma)\b/gi
     ),
   ].at(-1);
   if (explicit) {
-    return { language: explicit[1] || explicit[2], source: "current request" };
-  }
-  if (/ગુજરાતીમાં/.test(input)) {
-    return { language: "Gujarati", source: "current request" };
+    return {
+      language:
+        (explicit[1] || explicit[2]).toLowerCase() === "english"
+          ? "English"
+          : ROMAN_HINDI,
+      source: "current request",
+    };
   }
   if (/हिंदी में|हिन्दी में/.test(input)) {
-    return { language: "Hindi", source: "current request" };
+    return { language: ROMAN_HINDI, source: "current request" };
   }
-  if (preferred !== "auto") {
-    return { language: preferred, source: "saved preference" };
-  }
-  if (/[\u0A80-\u0AFF]/u.test(input)) {
-    return {
-      language: "Gujarati; preserve natural mixing",
-      source: "current input",
-    };
-  }
-  if (/[\u0900-\u097F]/u.test(input)) {
-    return {
-      language: "Hindi; preserve natural mixing",
-      source: "current input",
-    };
-  }
-  if (
-    /\b(?:samjhao|samjha|kya|kaise|kyun|mujhe|batao|hai|hain|karna|chahiye|nahi)\b/i.test(
-      input
-    )
-  ) {
-    return { language: "Hinglish", source: "current input" };
+  if (preferred === "Hindi" || preferred === "Hinglish") {
+    return { language: ROMAN_HINDI, source: "saved preference" };
   }
   return {
-    language:
-      "Match the current message's language and style, including mixed languages",
-    source: "current input",
+    language: "English",
+    source: "saved preference",
   };
 }
 

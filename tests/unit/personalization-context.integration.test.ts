@@ -12,7 +12,7 @@ import {
   upsertUserSettings,
 } from "@/lib/db/personalization-queries";
 import { chat, message, project, user } from "@/lib/db/schema";
-import type { UserProfile } from "@/lib/personalization";
+import { ROMAN_HINDI, type UserProfile } from "@/lib/personalization";
 
 const describeDb = process.env.TEST_POSTGRES_URL ? describe : describe.skip;
 
@@ -27,7 +27,7 @@ const profile: UserProfile = {
   displayName: "Ayan",
   interests: "",
   learningPreferences: "Practical examples",
-  preferredLanguage: "auto",
+  preferredLanguage: "English",
   responsePreferences: "Clear explanations",
   role: "Student",
 };
@@ -213,20 +213,17 @@ describeDb("personalized project context through the real database", () => {
     ).toBe("Python Learning");
   });
 
-  it("matches the message language and honours a saved preference", async () => {
-    const hinglish = await build(
-      "Python closures kaise kaam karte hain?",
-      python
-    );
-    expect(hinglish.context.language.language).toBe("Hinglish");
+  it("honours Roman Hindi and English preferences and explicit language requests", async () => {
+    const hinglish = await build("Python closures Hindi mein samjhao", python);
+    expect(hinglish.context.language.language).toBe(ROMAN_HINDI);
 
     await upsertUserSettings({
-      profile: { ...profile, preferredLanguage: "Gujarati" },
+      profile: { ...profile, preferredLanguage: "Hindi" },
       userId: owner,
     });
     const saved = await build("Explain closures", python);
     expect(saved.context.language).toEqual({
-      language: "Gujarati",
+      language: ROMAN_HINDI,
       source: "saved preference",
     });
     const explicit = await build("Explain closures in English", python);
