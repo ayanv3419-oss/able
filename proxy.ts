@@ -18,6 +18,7 @@ const publicPages = [
 function isPublicPath(pathname: string) {
   return (
     publicPages.includes(pathname) ||
+    pathname.startsWith("/pwa/") ||
     pathname.startsWith("/api/auth/") ||
     // The cron routes check CRON_SECRET themselves.
     pathname.startsWith("/api/cron/")
