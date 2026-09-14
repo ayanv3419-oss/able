@@ -26,6 +26,16 @@ test.describe("download page", () => {
 
     const workerResponse = await request.get("/sw.js");
     expect(workerResponse.ok()).toBe(true);
+
+    const iconResponses = await Promise.all(
+      ["/pwa/icon-192", "/pwa/icon-512"].map((iconPath) =>
+        request.get(iconPath)
+      )
+    );
+    for (const iconResponse of iconResponses) {
+      expect(iconResponse.ok()).toBe(true);
+      expect(iconResponse.headers()["content-type"]).toContain("image/png");
+    }
   });
 
   test("fits a phone viewport without horizontal overflow", async ({
