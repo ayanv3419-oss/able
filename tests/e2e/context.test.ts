@@ -18,9 +18,11 @@ test("saves study material, starts lesson part 1 and continues with Next part", 
   await expect(page).toHaveURL(/\/context\/[a-f0-9-]+$/);
   const folderUrl = page.url();
 
-  await page.getByLabel("Title").fill("Electrostatics");
   await page
-    .getByLabel("Study material")
+    .getByRole("textbox", { exact: true, name: "Title" })
+    .fill("Electrostatics");
+  await page
+    .getByRole("textbox", { exact: true, name: "Study material" })
     .fill("Coulomb's law describes the force between two electric charges.");
   await page.getByRole("button", { name: "Save and start lesson" }).click();
 
@@ -47,9 +49,14 @@ test("saves study material, starts lesson part 1 and continues with Next part", 
   await expect(
     page.getByText("Editable for 10 minutes after saving")
   ).toBeVisible();
-  await expect(page.getByLabel("Study material")).toHaveValue(
+  await expect(
+    page.getByRole("textbox", { exact: true, name: "Study material" })
+  ).toHaveValue(
     "Coulomb's law describes the force between two electric charges."
   );
+  await page.getByRole("link", { exact: true, name: "Back to chat" }).click();
+  await expect(page).toHaveURL("/");
+  await expect(page.getByTestId("multimodal-input")).toBeVisible();
 });
 
 test("a Context folder cannot be deleted until it is empty", async ({

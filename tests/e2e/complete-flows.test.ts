@@ -126,30 +126,41 @@ test("saves settings and creates a project with persistent instructions", async 
 }) => {
   await page.goto("/settings");
   await page
-    .getByLabel("What should Able know about you?", { exact: true })
+    .getByRole("textbox", {
+      exact: true,
+      name: "What should Able know about you?",
+    })
     .fill("I study biology.");
   await page
-    .getByLabel("How should Able respond to you?")
+    .getByRole("textbox", {
+      exact: true,
+      name: "How should Able respond to you?",
+    })
     .fill("Use concise explanations.");
   await page.getByRole("button", { exact: true, name: "Save" }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(
-    page.getByLabel("What should Able know about you?", { exact: true })
+    page.getByRole("textbox", {
+      exact: true,
+      name: "What should Able know about you?",
+    })
   ).toHaveValue("I study biology.");
-  await page.getByLabel("Name or nickname", { exact: true }).fill("Ayan");
   await page
-    .getByLabel("Reply language", { exact: true })
+    .getByRole("textbox", { exact: true, name: "Name or nickname" })
+    .fill("Ayan");
+  await page
+    .getByRole("combobox", { exact: true, name: "Reply language" })
     .selectOption("Hinglish");
   await page.getByRole("button", { exact: true, name: "Save profile" }).click();
   await expect(page.getByText("Profile saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(
-    page.getByLabel("Name or nickname", { exact: true })
+    page.getByRole("textbox", { exact: true, name: "Name or nickname" })
   ).toHaveValue("Ayan");
-  await expect(page.getByLabel("Reply language", { exact: true })).toHaveValue(
-    "Hinglish"
-  );
+  await expect(
+    page.getByRole("combobox", { exact: true, name: "Reply language" })
+  ).toHaveValue("Hinglish");
   await page.goto("/projects");
   await page.getByRole("button", { exact: true, name: "New project" }).click();
   await page
@@ -163,7 +174,9 @@ test("saves settings and creates a project with persistent instructions", async 
     .getByRole("link", { exact: true, name: "Open project: Biology revision" })
     .click();
   await page.getByText("Project instructions", { exact: true }).click();
-  await page.getByLabel("Instructions", { exact: true }).fill("Use SI units.");
+  await page
+    .getByRole("textbox", { exact: true, name: "Instructions" })
+    .fill("Use SI units.");
   await Promise.all([
     page.waitForResponse(
       (response) =>
@@ -174,9 +187,9 @@ test("saves settings and creates a project with persistent instructions", async 
   ]);
   await page.reload();
   await page.getByText("Project instructions", { exact: true }).click();
-  await expect(page.getByLabel("Instructions", { exact: true })).toHaveValue(
-    "Use SI units."
-  );
+  await expect(
+    page.getByRole("textbox", { exact: true, name: "Instructions" })
+  ).toHaveValue("Use SI units.");
 });
 
 baseTest(
@@ -224,9 +237,13 @@ baseTest(
       await page
         .getByRole("button", { exact: true, name: "Request a refund" })
         .click();
-      await expect(page.getByText(/Awaiting review/)).toBeVisible();
+      await expect(
+        page.getByRole("status").filter({ hasText: /Awaiting review/ })
+      ).toBeVisible();
       await page.reload();
-      await expect(page.getByText(/Awaiting review/)).toBeVisible();
+      await expect(
+        page.getByRole("status").filter({ hasText: /Awaiting review/ })
+      ).toBeVisible();
       await adminPage.goto("/admin/refunds");
       await adminPage
         .getByRole("row")
