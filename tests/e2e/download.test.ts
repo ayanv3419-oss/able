@@ -13,8 +13,8 @@ test.describe("download page", () => {
     ).toBeVisible();
     await expect(page.getByText("Internet required")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /install steps|install able/i }).first()
-    ).toBeVisible();
+      page.getByRole("link", { name: "Download for Windows" }).first()
+    ).toHaveAttribute("href", /Able-Setup\.exe$/);
 
     const manifestResponse = await request.get("/manifest.webmanifest");
     expect(manifestResponse.ok()).toBe(true);
@@ -36,6 +36,18 @@ test.describe("download page", () => {
       expect(iconResponse.ok()).toBe(true);
       expect(iconResponse.headers()["content-type"]).toContain("image/png");
     }
+
+    const assetLinksResponse = await request.get(
+      "/.well-known/assetlinks.json"
+    );
+    expect(assetLinksResponse.ok()).toBe(true);
+    expect(await assetLinksResponse.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: expect.objectContaining({ package_name: "app.able.mobile" }),
+        }),
+      ])
+    );
   });
 
   test("fits a phone viewport without horizontal overflow", async ({
@@ -50,6 +62,7 @@ test.describe("download page", () => {
     }));
 
     expect(dimensions.scrollWidth).toBe(dimensions.clientWidth);
-    await expect(page.getByText("iPhone & iPad")).toBeVisible();
+    await expect(page.getByText("macOS", { exact: true })).toBeVisible();
+    await expect(page.getByText("iPhone and iPad:")).toBeVisible();
   });
 });

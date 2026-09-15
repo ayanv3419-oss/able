@@ -3,6 +3,7 @@ import {
   detectInstallBrowser,
   detectInstallPlatform,
   getManualInstallHint,
+  getNativeDownload,
 } from "@/lib/install";
 
 describe("install helpers", () => {
@@ -40,5 +41,15 @@ describe("install helpers", () => {
       "Add to Home Screen"
     );
     expect(getManualInstallHint("windows", "edge")).toContain("Apps");
+  });
+
+  it("maps supported systems to stable native release downloads", () => {
+    expect(getNativeDownload("windows")).toMatchObject({
+      href: expect.stringContaining("Able-Setup.exe"),
+      label: "Download for Windows",
+    });
+    expect(getNativeDownload("android")?.href).toContain("Able-Android.apk");
+    expect(getNativeDownload("macos")?.href).toContain("Able-macOS.dmg");
+    expect(getNativeDownload("ios")).toBeNull();
   });
 });

@@ -1,0 +1,108 @@
+name: Native release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install packaging tools
+        run: choco install innosetup imagemagick.app --yes --no-progress
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          New-Item -ItemType Directory -Force -Path native/windows/build, dist/windows | Out-Null
+          Invoke-WebRequest https://able-alpha.vercel.app/pwa/icon-512 -OutFile native/windows/build/Able.png
+          magick native/windows/build/Able.png -define icon:auto-resize=256,128,64,48,32,16 native/windows/build/Able.ico
+          & "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /optimize+ /win32icon:native\windows\build\Able.ico /out:native\windows\build\Able.exe native\windows\Program.cs
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" native/windows/Able.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/windows/Able-Setup.exe
+
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Install Android build tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Build and sign Android APK
+        env:
+          ANDROID_SIGNING_CERT_PEM: ${{ secrets.ANDROID_SIGNING_CERT_PEM }}
+          ANDROID_SIGNING_KEY_PEM: ${{ secrets.ANDROID_SIGNING_KEY_PEM }}
+        run: |
+          gradle --project-dir native/android :app:assembleRelease
+          mkdir -p dist/android native/android/signing
+          printf '%s' "$ANDROID_SIGNING_KEY_PEM" > native/android/signing/key.pem
+          printf '%s' "$ANDROID_SIGNING_CERT_PEM" > native/android/signing/cert.pem
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" -f 4 native/android/app/build/outputs/apk/release/app-release-unsigned.apk dist/android/Able-Android-aligned.apk
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" sign --key native/android/signing/key.pem --cert native/android/signing/cert.pem --out dist/android/Able-Android.apk dist/android/Able-Android-aligned.apk
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/android/Able-Android.apk
+          rm -f dist/android/Able-Android-aligned.apk native/android/signing/key.pem native/android/signing/cert.pem
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: dist/android/Able-Android.apk
+
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build macOS disk image
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          APP="native/macos/build/Able.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" native/macos/icon.iconset native/macos/dmg dist/macos
+          curl --fail --location https://able-alpha.vercel.app/pwa/icon-512 --output native/macos/icon.png
+          sips -z 16 16 native/macos/icon.png --out native/macos/icon.iconset/icon_16x16.png
+          sips -z 32 32 native/macos/icon.png --out native/macos/icon.iconset/icon_16x16@2x.png
+          sips -z 32 32 native/macos/icon.png --out native/macos/icon.iconset/icon_32x32.png
+          sips -z 64 64 native/macos/icon.png --out native/macos/icon.iconset/icon_32x32@2x.png
+          sips -z 128 128 native/macos/icon.png --out native/macos/icon.iconset/icon_128x128.png
+          sips -z 256 256 native/macos/icon.png --out native/macos/icon.iconset/icon_128x128@2x.png
+          sips -z 256 256 native/macos/icon.png --out native/macos/icon.iconset/icon_256x256.png
+          sips -z 512 512 native/macos/icon.png --out native/macos/icon.iconset/icon_256x256@2x.png
+          cp native/macos/icon.png native/macos/icon.iconset/icon_512x512.png
+          sips -z 1024 1024 native/macos/icon.png --out native/macos/icon.iconset/icon_512x512@2x.png
+          iconutil -c icns native/macos/icon.iconset -o "$APP/Contents/Resources/Able.icns"
+          sed "s/__VERSION__/$VERSION/g" native/macos/Info.plist > "$APP/Contents/Info.plist"
+          swiftc native/macos/AbleLauncher.swift -framework AppKit -o "$APP/Contents/MacOS/Able"
+          codesign --force --deep --sign - "$APP"
+          cp -R "$APP" native/macos/dmg/Able.app
+          ln -s /Applications native/macos/dmg/Applications
+          hdiutil create -volname Able -srcfolder native/macos/dmg -ov -format UDZO dist/macos/Able-macOS.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/macos/Able-macOS.dmg
+
+  release:
+    needs: [windows, android, macos]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: artifacts
+      - name: Publish downloadable apps
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" artifacts/Able-Setup.exe artifacts/Able-Android.apk artifacts/Able-macOS.dmg --repo "$GITHUB_REPOSITORY" --title "Able ${GITHUB_REF_NAME#v}" --notes "Able installers for Windows, Android, and macOS. These apps connect securely to the live Able service, so an internet connection is required." --verify-tag --latest

@@ -1,14 +1,16 @@
 "use client";
 
-import { Check, Download, LoaderCircle } from "lucide-react";
+import { Download, LoaderCircle, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   detectInstallBrowser,
   detectInstallPlatform,
   getManualInstallHint,
+  getNativeDownload,
   type InstallBrowser,
   type InstallPlatform,
+  type NativeDownload,
 } from "@/lib/install";
 
 type BeforeInstallPromptEvent = Event & {
@@ -16,27 +18,16 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-function isInstalled() {
-  const navigatorWithStandalone = navigator as Navigator & {
-    standalone?: boolean;
-  };
-
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    navigatorWithStandalone.standalone === true
-  );
-}
-
-export function DownloadInstall({ compact = false }: { compact?: boolean }) {
+export function DownloadInstall() {
   const [browser, setBrowser] = useState<InstallBrowser>("other");
-  const [installed, setInstalled] = useState(false);
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
+  const [nativeDownload, setNativeDownload] = useState<NativeDownload | null>(
+    null
+  );
   const [platform, setPlatform] = useState<InstallPlatform>("other");
   const [ready, setReady] = useState(false);
-  const [status, setStatus] = useState(
-    "Able installs from your browser—no app store needed."
-  );
+  const [status, setStatus] = useState("Detecting the best Able app for you…");
 
   useEffect(() => {
     const currentPlatform = detectInstallPlatform({
@@ -45,10 +36,17 @@ export function DownloadInstall({ compact = false }: { compact?: boolean }) {
       userAgent: navigator.userAgent,
     });
     const currentBrowser = detectInstallBrowser(navigator.userAgent);
+    const currentDownload = getNativeDownload(currentPlatform);
 
     setPlatform(currentPlatform);
     setBrowser(currentBrowser);
-    setInstalled(isInstalled());
+    setNativeDownload(currentDownload);
+    setStatus(
+      currentDownload?.detail ??
+        (currentPlatform === "ios"
+          ? "The iPhone app needs Apple App Store signing. Home Screen install is available now."
+          : "Choose Windows, Android, or macOS below.")
+    );
     setReady(true);
 
     if ("serviceWorker" in navigator) {
@@ -61,26 +59,14 @@ export function DownloadInstall({ compact = false }: { compact?: boolean }) {
       event.preventDefault();
       setInstallPrompt(event as BeforeInstallPromptEvent);
     };
-    const handleInstalled = () => {
-      setInstalled(true);
-      setInstallPrompt(null);
-      setStatus("Able is installed and ready from your home screen.");
-    };
-
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
-    window.addEventListener("appinstalled", handleInstalled);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
-      window.removeEventListener("appinstalled", handleInstalled);
     };
   }, []);
 
-  const handleInstall = useCallback(async () => {
-    if (installed) {
-      return;
-    }
-
+  const handleWebInstall = useCallback(async () => {
     if (!installPrompt) {
       setStatus(getManualInstallHint(platform, browser));
       return;
@@ -89,49 +75,48 @@ export function DownloadInstall({ compact = false }: { compact?: boolean }) {
     await installPrompt.prompt();
     const choice = await installPrompt.userChoice;
     setInstallPrompt(null);
-
-    if (choice.outcome === "accepted") {
-      setInstalled(true);
-      setStatus("Able is installed and ready from your home screen.");
-      return;
-    }
-
     setStatus(
-      "Installation was cancelled. You can try again whenever you're ready."
+      choice.outcome === "accepted"
+        ? "Able is installed and ready from your home screen."
+        : "Installation was cancelled. You can try again whenever you're ready."
     );
-  }, [browser, installPrompt, installed, platform]);
+  }, [browser, installPrompt, platform]);
 
-  const buttonLabel = installed
-    ? "Able is installed"
-    : installPrompt
-      ? "Install Able"
-      : "Show install steps";
+  const linkClass =
+    "mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#151515] px-6 text-[15px] font-medium text-white shadow-lg shadow-black/10 transition-transform hover:scale-[1.01] hover:bg-black";
 
-  if (compact) {
-    return (
-      <div className="mx-auto w-full max-w-md">
-        <Button
-          className="h-12 w-full rounded-2xl bg-white px-6 text-[15px] font-medium text-[#151515] shadow-lg shadow-black/10 hover:bg-white/90"
-          disabled={!ready || installed}
-          onClick={handleInstall}
-          size="lg"
-          type="button"
-        >
-          {ready ? (
-            installed ? (
-              <Check className="size-4" />
-            ) : (
-              <Download className="size-4" />
-            )
-          ) : (
-            <LoaderCircle className="size-4 animate-spin" />
-          )}
-          {ready ? buttonLabel : "Checking your device…"}
-        </Button>
-        <p aria-live="polite" className="mt-3 text-sm leading-5 text-white/65">
-          {status}
-        </p>
-      </div>
+  let action = (
+    <a className={linkClass} href="#devices">
+      <Download className="size-4" />
+      Choose your download
+    </a>
+  );
+
+  if (!ready) {
+    action = (
+      <span className={linkClass}>
+        <LoaderCircle className="size-4 animate-spin" />
+        Checking your device…
+      </span>
+    );
+  } else if (nativeDownload) {
+    action = (
+      <a className={linkClass} href={nativeDownload.href}>
+        <Download className="size-4" />
+        {nativeDownload.label}
+      </a>
+    );
+  } else if (platform === "ios") {
+    action = (
+      <Button
+        className={linkClass}
+        onClick={handleWebInstall}
+        size="lg"
+        type="button"
+      >
+        <Smartphone className="size-4" />
+        Install on iPhone
+      </Button>
     );
   }
 
@@ -146,29 +131,12 @@ export function DownloadInstall({ compact = false }: { compact?: boolean }) {
             Able for your device
           </p>
           <p className="mt-1 text-sm leading-6 text-[#6d6d6d]">
-            Installs in seconds. Your chats stay synced everywhere.
+            Real installer. Focused app window. Your chats stay synced.
           </p>
         </div>
       </div>
 
-      <Button
-        className="mt-7 h-12 w-full rounded-2xl bg-[#151515] text-[15px] font-medium text-white shadow-lg shadow-black/10 hover:bg-black"
-        disabled={!ready || installed}
-        onClick={handleInstall}
-        size="lg"
-        type="button"
-      >
-        {ready ? (
-          installed ? (
-            <Check className="size-4" />
-          ) : (
-            <Download className="size-4" />
-          )
-        ) : (
-          <LoaderCircle className="size-4 animate-spin" />
-        )}
-        {ready ? buttonLabel : "Checking your device…"}
-      </Button>
+      {action}
 
       <p
         aria-live="polite"

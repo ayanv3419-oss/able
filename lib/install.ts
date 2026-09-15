@@ -2,6 +2,47 @@ export type InstallPlatform = "android" | "ios" | "macos" | "windows" | "other";
 
 export type InstallBrowser = "chrome" | "edge" | "firefox" | "safari" | "other";
 
+export type NativeDownload = {
+  detail: string;
+  href: string;
+  label: string;
+};
+
+const RELEASE_DOWNLOAD_BASE =
+  "https://github.com/ayanv3419-oss/able/releases/latest/download";
+
+export const NATIVE_DOWNLOADS = {
+  android: {
+    detail: "Android 6 or newer • APK",
+    href: `${RELEASE_DOWNLOAD_BASE}/Able-Android.apk`,
+    label: "Download for Android",
+  },
+  macos: {
+    detail: "macOS 12 or newer • DMG",
+    href: `${RELEASE_DOWNLOAD_BASE}/Able-macOS.dmg`,
+    label: "Download for macOS",
+  },
+  windows: {
+    detail: "Windows 10 or 11 • EXE",
+    href: `${RELEASE_DOWNLOAD_BASE}/Able-Setup.exe`,
+    label: "Download for Windows",
+  },
+} satisfies Record<"android" | "macos" | "windows", NativeDownload>;
+
+export function getNativeDownload(
+  platform: InstallPlatform
+): NativeDownload | null {
+  if (
+    platform === "android" ||
+    platform === "macos" ||
+    platform === "windows"
+  ) {
+    return NATIVE_DOWNLOADS[platform];
+  }
+
+  return null;
+}
+
 type NavigatorDetails = {
   maxTouchPoints?: number;
   platform?: string;

@@ -2,6 +2,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Cloud,
+  Download,
   Laptop,
   MessageSquareText,
   MonitorSmartphone,
@@ -15,31 +16,39 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { DownloadInstall } from "@/components/install/download-install";
+import { NATIVE_DOWNLOADS } from "@/lib/install";
 
 export const metadata: Metadata = {
   description:
-    "Install Able on Windows, macOS, Android, iPhone, or iPad and keep your study chats close.",
+    "Download the Able app for Windows, Android, or macOS and keep your study chats close.",
   title: "Download Able",
 };
 
 const deviceGuides = [
   {
-    description: "Open in Chrome or Edge, then choose Install Able.",
+    action: "Download .exe",
+    description:
+      "Run the installer to add Able to your desktop and Start menu.",
+    href: NATIVE_DOWNLOADS.windows.href,
     icon: Laptop,
-    label: "Windows & macOS",
-    step: "Desktop",
+    label: "Windows",
+    step: ".EXE",
   },
   {
-    description: "Open in Chrome, tap the menu, then Add to Home screen.",
+    action: "Download .apk",
+    description: "Install the signed APK for a full-screen Able experience.",
+    href: NATIVE_DOWNLOADS.android.href,
     icon: Smartphone,
     label: "Android",
-    step: "Mobile",
+    step: ".APK",
   },
   {
-    description: "Open in Safari, tap Share, then Add to Home Screen.",
+    action: "Download .dmg",
+    description: "Open the disk image and move Able into Applications.",
+    href: NATIVE_DOWNLOADS.macos.href,
     icon: MonitorSmartphone,
-    label: "iPhone & iPad",
-    step: "Mobile",
+    label: "macOS",
+    step: ".DMG",
   },
 ];
 
@@ -67,7 +76,7 @@ const benefits = [
 const questions = [
   {
     answer:
-      "Yes. Able installs directly from a supported browser and does not require an app-store download.",
+      "Yes. The Windows, Android, and macOS installers are free to download directly from Able.",
     question: "Is the Able app free to install?",
   },
   {
@@ -79,6 +88,11 @@ const questions = [
     answer:
       "Yes. Sign in with the same Google account and your chats and projects remain available across devices.",
     question: "Will my chats sync?",
+  },
+  {
+    answer:
+      "A true iPhone app must be signed and distributed with an Apple Developer account through TestFlight or the App Store. Until then, Safari can add Able to the Home Screen.",
+    question: "Where is the iPhone app?",
   },
 ];
 
@@ -126,14 +140,15 @@ export default function DownloadPage() {
               Your best study space, one tap away.
             </h1>
             <p className="mt-7 max-w-xl text-pretty text-lg leading-8 text-[#696969] sm:text-xl">
-              Install Able on your home screen for a focused, app-like
-              experience. Your conversations and projects follow you across
-              devices.
+              Download the real Able app for a focused window, one-tap access,
+              and a place on your device. Your conversations and projects follow
+              you everywhere.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-[#555]">
               <span className="inline-flex items-center gap-2">
-                <CheckCircle2 className="size-4 text-[#151515]" /> No app store
+                <CheckCircle2 className="size-4 text-[#151515]" /> Direct
+                download
               </span>
               <span className="inline-flex items-center gap-2">
                 <ShieldCheck className="size-4 text-[#151515]" /> Secure sign-in
@@ -172,31 +187,45 @@ export default function DownloadPage() {
               Able, wherever you learn.
             </h2>
             <p className="mt-5 text-base leading-7 text-[#707070] sm:text-lg">
-              Pick your device and add Able in a few taps. Updates arrive
-              automatically.
+              Pick your device and download the installer directly.
             </p>
           </div>
 
           <div className="mt-12 grid gap-4 md:grid-cols-3">
-            {deviceGuides.map(({ description, icon: Icon, label, step }) => (
-              <article
-                className="rounded-[1.6rem] border border-black/8 bg-[#fafafa] p-6 sm:p-7"
-                key={label}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex size-11 items-center justify-center rounded-xl border border-black/8 bg-white">
-                    <Icon className="size-5" />
+            {deviceGuides.map(
+              ({ action, description, href, icon: Icon, label, step }) => (
+                <article
+                  className="rounded-[1.6rem] border border-black/8 bg-[#fafafa] p-6 sm:p-7"
+                  key={label}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex size-11 items-center justify-center rounded-xl border border-black/8 bg-white">
+                      <Icon className="size-5" />
+                    </div>
+                    <span className="text-xs font-medium uppercase tracking-[0.16em] text-[#969696]">
+                      {step}
+                    </span>
                   </div>
-                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-[#969696]">
-                    {step}
-                  </span>
-                </div>
-                <h3 className="mt-10 text-lg font-semibold">{label}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#6d6d6d]">
-                  {description}
-                </p>
-              </article>
-            ))}
+                  <h3 className="mt-10 text-lg font-semibold">{label}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#6d6d6d]">
+                    {description}
+                  </p>
+                  <a
+                    className="mt-6 inline-flex items-center gap-2 text-sm font-semibold hover:underline"
+                    href={href}
+                  >
+                    <Download className="size-4" />
+                    {action}
+                  </a>
+                </article>
+              )
+            )}
+          </div>
+          <div className="mt-5 rounded-2xl border border-black/8 bg-[#f4f4f1] px-5 py-4 text-sm leading-6 text-[#656565]">
+            <strong className="text-[#151515]">iPhone and iPad:</strong> Apple
+            requires App Store or TestFlight signing for a native release. Until
+            that account is connected, open Able in Safari and choose Add to
+            Home Screen.
           </div>
         </div>
       </section>
@@ -254,14 +283,20 @@ export default function DownloadPage() {
       <section className="bg-[#151515] px-5 py-20 text-center text-white sm:px-8 sm:py-24">
         <div className="mx-auto max-w-3xl">
           <h2 className="text-balance text-3xl font-medium tracking-[-0.04em] sm:text-5xl">
-            Put Able on your home screen.
+            Put the real Able app on your device.
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-white/60">
             Faster access to your AI study companion, with your work synced and
             ready.
           </p>
           <div className="mt-8">
-            <DownloadInstall compact />
+            <a
+              className="mx-auto inline-flex h-12 w-full max-w-md items-center justify-center gap-2 rounded-2xl bg-white px-6 text-[15px] font-medium text-[#151515] shadow-lg shadow-black/10 transition-transform hover:scale-[1.01] hover:bg-white/90"
+              href="#devices"
+            >
+              <Download className="size-4" />
+              Choose your download
+            </a>
           </div>
         </div>
       </section>

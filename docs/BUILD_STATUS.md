@@ -1,5 +1,13 @@
 # Local v1 build status
 
+## Native downloads, 15 September 2026
+
+- Added reproducible release builds for a Windows `.exe` installer, signed Android `.apk`, and macOS `.dmg`. A tagged release builds all three on their native GitHub runners and publishes stable download filenames.
+- Windows and macOS use the system's Chrome/Edge app mode, and Android uses a verified Trusted Web Activity. This preserves browser-owned Google authentication instead of using an embedded WebView that Google blocks.
+- Added Android signing secrets and Digital Asset Links for `app.able.mobile`. The public download page now detects the visitor's system and offers the matching native installer.
+- A true iPhone build remains gated on an Apple Developer account, signing certificate and App Store/TestFlight setup; the existing Home Screen version remains available until those credentials exist.
+- Local verification: repository lint, TypeScript, five focused unit tests, two browser tests, Windows launcher compilation, workflow YAML parsing and Digital Asset Links JSON parsing.
+
 ## Installable Able app, 15 September 2026
 
 - Added a complete public `/download` page with a responsive product overview, platform-specific installation help, FAQs and install calls to action.
