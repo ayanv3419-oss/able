@@ -2,6 +2,8 @@ name: Native release
 
 on:
   push:
+    branches:
+      - "codex/android-launch-fix"
     tags:
       - "v*"
 
@@ -10,6 +12,7 @@ permissions:
 
 jobs:
   windows:
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +66,7 @@ jobs:
           path: dist/android/Able-Android.apk
 
   macos:
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -94,12 +98,45 @@ jobs:
           name: macos
           path: dist/macos/Able-macOS.dmg
 
+  android-launch:
+    needs: android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 35]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: android
+          path: dist/android
+      - name: Enable emulator acceleration
+        run: sudo chmod a+rw /dev/kvm
+      - name: Verify installed APK startup and upgrade
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: bash native/android/test-launch.sh
+      - name: Save launch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-launch-api-${{ matrix.api }}
+          path: dist/android-launch/
+
   release:
-    needs: [windows, android, macos]
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [windows, android, macos, android-launch]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:
+          pattern: "{windows,android,macos}"
           merge-multiple: true
           path: artifacts
       - name: Publish downloadable apps
