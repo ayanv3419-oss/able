@@ -43,7 +43,7 @@ jobs:
       - name: Install Android build tools
         run: |
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"
       - name: Build and sign Android APK
         env:
           ANDROID_SIGNING_CERT_PEM: ${{ secrets.ANDROID_SIGNING_CERT_PEM }}
