@@ -41,6 +41,8 @@ def wait_for(label, predicate, timeout=40):
             last = ui()
             if predicate(last):
                 (OUT / f"{label}.xml").write_text(last)
+                # Accessibility can update before the browser paints the new page.
+                time.sleep(1)
                 (OUT / f"{label}.png").write_bytes(adb("exec-out", "screencap", "-p"))
                 RESULT["checks"].append({"check": label, "passed": True})
                 print(f"PASS: {label}", flush=True)
@@ -83,8 +85,10 @@ def google_login_screen(xml):
     if any(error.casefold() in xml.casefold() for error in invalid):
         (OUT / "google-error.xml").write_text(xml)
         raise AssertionError("Google rejected the app's authentication request")
-    return "accounts.google.com" in xml and any(
-        text in xml for text in ("Email or phone", "Choose an account", "Use your Google Account")
+    return (
+        "accounts.google.com" in xml
+        and "able-alpha.vercel.app" in xml
+        and any(text in xml for text in ("Sign in - Google Accounts", "Choose an account"))
     )
 
 
