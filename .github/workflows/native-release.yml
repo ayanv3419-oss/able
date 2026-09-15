@@ -46,17 +46,17 @@ jobs:
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"
       - name: Build and sign Android APK
         env:
-          ANDROID_SIGNING_CERT_PEM: ${{ secrets.ANDROID_SIGNING_CERT_PEM }}
-          ANDROID_SIGNING_KEY_PEM: ${{ secrets.ANDROID_SIGNING_KEY_PEM }}
+          ANDROID_SIGNING_CERT_BASE64: ${{ secrets.ANDROID_SIGNING_CERT_BASE64 }}
+          ANDROID_SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
         run: |
           gradle --project-dir native/android :app:assembleRelease
           mkdir -p dist/android native/android/signing
-          printf '%s' "$ANDROID_SIGNING_KEY_PEM" > native/android/signing/key.pem
-          printf '%s' "$ANDROID_SIGNING_CERT_PEM" > native/android/signing/cert.pem
+          printf '%s' "$ANDROID_SIGNING_KEY_BASE64" | base64 --decode > native/android/signing/key.pk8
+          printf '%s' "$ANDROID_SIGNING_CERT_BASE64" | base64 --decode > native/android/signing/cert.der
           "$ANDROID_SDK_ROOT/build-tools/35.0.0/zipalign" -f 4 native/android/app/build/outputs/apk/release/app-release-unsigned.apk dist/android/Able-Android-aligned.apk
-          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" sign --key native/android/signing/key.pem --cert native/android/signing/cert.pem --out dist/android/Able-Android.apk dist/android/Able-Android-aligned.apk
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" sign --key native/android/signing/key.pk8 --cert native/android/signing/cert.der --out dist/android/Able-Android.apk dist/android/Able-Android-aligned.apk
           "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/android/Able-Android.apk
-          rm -f dist/android/Able-Android-aligned.apk native/android/signing/key.pem native/android/signing/cert.pem
+          rm -f dist/android/Able-Android-aligned.apk native/android/signing/key.pk8 native/android/signing/cert.der
       - uses: actions/upload-artifact@v4
         with:
           name: android
