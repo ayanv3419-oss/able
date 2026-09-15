@@ -1,4 +1,4 @@
-export const STUDY_CONTEXT_MAX_CHARS = 100_000;
+export const STUDY_CONTEXT_MAX_CHARS = 15_000;
 export const STUDY_CONTEXT_EDIT_WINDOW_MS = 10 * 60 * 1000;
 
 export type TeachingMode =

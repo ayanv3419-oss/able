@@ -52,7 +52,7 @@ export function StudyContextForm({
           <Label htmlFor={contentId}>Study material</Label>
           <span className="text-muted-foreground text-xs tabular-nums">
             {length.toLocaleString("en-IN")} /{" "}
-            {STUDY_CONTEXT_MAX_CHARS.toLocaleString("en-IN")}
+            {STUDY_CONTEXT_MAX_CHARS.toLocaleString("en-IN")} characters
           </span>
         </div>
         <Textarea

@@ -3,6 +3,7 @@ import { systemPrompt } from "@/lib/ai/prompts";
 import {
   canEditStudyContext,
   STUDY_CONTEXT_EDIT_WINDOW_MS,
+  STUDY_CONTEXT_MAX_CHARS,
   teachingRequest,
 } from "@/lib/study-context";
 
@@ -14,6 +15,10 @@ const requestHints = {
 };
 
 describe("Study Context rules", () => {
+  it("caps each study-material upload within the provider token budget", () => {
+    expect(STUDY_CONTEXT_MAX_CHARS).toBe(15_000);
+  });
+
   it("locks exactly ten minutes after the original save", () => {
     const now = new Date("2026-09-15T12:00:00.000Z");
     expect(

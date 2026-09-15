@@ -18,12 +18,19 @@ test("saves study material, starts lesson part 1 and continues with Next part", 
   await expect(page).toHaveURL(/\/context\/[a-f0-9-]+$/);
   const folderUrl = page.url();
 
+  const studyMaterial = page.getByRole("textbox", {
+    exact: true,
+    name: "Study material",
+  });
+  await expect(studyMaterial).toHaveAttribute("maxlength", "15000");
+  await expect(page.getByText("0 / 15,000 characters")).toBeVisible();
+
   await page
     .getByRole("textbox", { exact: true, name: "Title" })
     .fill("Electrostatics");
-  await page
-    .getByRole("textbox", { exact: true, name: "Study material" })
-    .fill("Coulomb's law describes the force between two electric charges.");
+  await studyMaterial.fill(
+    "Coulomb's law describes the force between two electric charges."
+  );
   await page.getByRole("button", { name: "Save and start lesson" }).click();
 
   await expect(page).toHaveURL(/\/chat\/[a-f0-9-]+$/);
