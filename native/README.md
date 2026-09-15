@@ -17,3 +17,16 @@ embedding Google sign-in in a WebView, which Google blocks.
 Pushing a `v*` tag runs `.github/workflows/native-release.yml` and publishes the
 three stable filenames on the matching GitHub release. The Android private key
 and public certificate are held in repository Actions secrets.
+
+## Android startup verification
+
+The manifest must declare `ManageDataLauncherActivity`, even when no settings
+shortcut is shown. Android Browser Helper 2.7.2 enables or disables that component
+on every launch; Android throws if it is absent. The application also identifies
+it as its `manageSpaceActivity` and supplies the Able origin.
+
+Before publishing, `native/android/test-launch.sh` runs on Android 10 (API 29)
+and Android 15 (API 35) emulators. It reproduces the missing-component crash in
+the original v1.0.3 APK, installs the signed update over it, and checks first
+launch and reopening. Logcat output, activity state, UI dumps and screenshots
+are saved as workflow artifacts. Release publishing depends on both checks.

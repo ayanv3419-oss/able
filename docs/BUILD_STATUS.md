@@ -1,5 +1,12 @@
 # Local v1 build status
 
+## Android startup fix, 15 September 2026
+
+- Reproduced the v1.0.3 APK's immediate startup crash on Android 10 (API 29) and Android 15 (API 35): `IllegalArgumentException: Component class ...ManageDataLauncherActivity does not exist in app.able.mobile`.
+- Registered the settings activity required by Android Browser Helper and configured its Able URL. The Android update is version 1.0.4 / version code 2, with the existing production signing certificate.
+- GitHub Actions run `34916658360` built and signed the APK, reproduced the old crash, installed the update over the old APK, and passed first-launch and reopening checks on both emulators. All four updated launch crash logs were empty; captured UI dumps show the live Google sign-in button. Android 15 screenshots show the styled sign-in screen; Android 10's bundled old Chrome renders the page without modern styles, so the old-emulator result verifies startup, not current-browser styling.
+- Added emulator launch checks to the release publishing requirements. Web application code and the production database are unchanged by this fix.
+
 ## Native downloads, 15 September 2026
 
 - Added reproducible release builds for a Windows `.exe` installer, signed Android `.apk`, and macOS `.dmg`. A tagged release builds all three on their native GitHub runners and publishes stable download filenames.

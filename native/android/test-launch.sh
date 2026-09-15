@@ -47,6 +47,7 @@ check_launch() {
   adb shell uiautomator dump /sdcard/able-window.xml
   adb pull /sdcard/able-window.xml "$evidence/$label-window.xml"
   adb exec-out screencap -p > "$evidence/$label.png"
+  grep -q 'Continue with Google' "$evidence/$label-window.xml"
 }
 
 check_launch first-launch
