@@ -1,44 +1,91 @@
-import { createGroq } from "@ai-sdk/groq";
+import { createGroq, type GroqProvider } from "@ai-sdk/groq";
 import { customProvider, type LanguageModel } from "ai";
 import { useMockAI } from "../constants";
-import { CHAT_MODEL_ID, TITLE_MODEL_ID } from "./models";
-
-const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+import {
+  markAIKeyFailure,
+  markAIKeyHealthy,
+  modelForSelection,
+  type SelectedAIKey,
+  selectAIKey,
+  withAIKeyFailover,
+} from "./key-pool";
 
 // Tests must never reach Groq, so they run against the mock models.
 const mockProvider = useMockAI
   ? (() => {
-      const {
-        chatModel,
-        titleModel: mockTitleModel,
-      } = require("./models.mock");
+      const { chatModel, titleModel } = require("./models.mock");
       return customProvider({
         languageModels: {
           "chat-model": chatModel,
-          "title-model": mockTitleModel,
+          "title-model": titleModel,
         },
       });
     })()
   : null;
+const mockGroq = useMockAI ? createGroq({ apiKey: "mock" }) : null;
 
-export function getChatModel(): LanguageModel {
-  if (mockProvider) {
-    return mockProvider.languageModel("chat-model");
-  }
-  return groq(CHAT_MODEL_ID);
+export type ModelSelection = {
+  groqClient?: GroqProvider;
+  keyId: string;
+  model: LanguageModel;
+  provider: "groq" | "gemini";
+  raw?: SelectedAIKey;
+};
+
+function toModelSelection(
+  selected: SelectedAIKey,
+  purpose: "chat" | "title"
+): ModelSelection {
+  return {
+    groqClient: selected.provider === "groq" ? selected.client : undefined,
+    keyId: selected.keyId,
+    model: modelForSelection(selected, purpose),
+    provider: selected.provider,
+    raw: selected,
+  };
 }
 
-export function getTitleModel(): LanguageModel {
+export async function getChatModelSelection({
+  allowGemini = true,
+}: {
+  allowGemini?: boolean;
+} = {}): Promise<ModelSelection> {
   if (mockProvider) {
-    return mockProvider.languageModel("title-model");
+    return {
+      groqClient: mockGroq ?? undefined,
+      keyId: "mock",
+      model: mockProvider.languageModel("chat-model"),
+      provider: "groq",
+    };
   }
-  return groq(TITLE_MODEL_ID);
+  return toModelSelection(await selectAIKey({ allowGemini }), "chat");
 }
 
-/**
- * The Groq provider instance, exposed so the chat route can add
- * `groq.tools.browserSearch({})` when the student turns web search on
- * (SPEC §6). Tests never reach this because the route only adds the tool
- * when the `webSearch` flag is true, and mock chats never set it.
- */
-export { groq };
+export function withTitleModelFailover<T>(
+  operation: (selection: ModelSelection) => Promise<T>
+): Promise<T> {
+  if (mockProvider) {
+    return operation({
+      groqClient: mockGroq ?? undefined,
+      keyId: "mock",
+      model: mockProvider.languageModel("title-model"),
+      provider: "groq",
+    });
+  }
+  return withAIKeyFailover((selection) =>
+    operation(toModelSelection(selection, "title"))
+  );
+}
+
+export function markModelSelectionFailure(
+  selection: ModelSelection,
+  error: unknown
+) {
+  return selection.raw ? markAIKeyFailure(selection.raw, error) : false;
+}
+
+export async function markModelSelectionHealthy(selection: ModelSelection) {
+  if (selection.raw) {
+    await markAIKeyHealthy(selection.raw);
+  }
+}

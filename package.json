@@ -29,6 +29,7 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.72",
     "@ai-sdk/groq": "^4.0.41",
     "@ai-sdk/otel": "^1.0.15",
     "@ai-sdk/provider": "^4.0.2",

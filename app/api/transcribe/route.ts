@@ -1,29 +1,32 @@
-import { createGroq } from "@ai-sdk/groq";
 import { transcribe } from "ai";
 import { auth } from "@/app/(auth)/auth";
+import { withAIKeyFailover } from "@/lib/ai/key-pool";
 import { useMockAI } from "@/lib/constants";
 import { insertUsageEvent } from "@/lib/db/usage-queries";
 import { getEntitlement } from "@/lib/entitlements";
 import { ChatbotError } from "@/lib/errors";
 import { costMicros } from "@/lib/metering";
 
-/**
- * Voice transcription (SPEC §7 Voice). lib/ai/providers.ts only exports chat
- * and title models, so this route creates its own minimal Groq client rather
- * than editing that file, as the brief allows.
- */
-const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
-
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 /** The composer's mic button is specced to record up to 60 seconds. */
 const MAX_RECORDING_SECONDS = 60;
 async function transcribeWithGroq(file: Blob, signal: AbortSignal) {
-  return await transcribe({
-    abortSignal: signal,
-    audio: new Uint8Array(await file.arrayBuffer()),
-    model: groq.transcription("whisper-large-v3-turbo"),
-    providerOptions: { groq: { responseFormat: "verbose_json" } },
-  });
+  const audio = new Uint8Array(await file.arrayBuffer());
+  return withAIKeyFailover(
+    (selection) => {
+      if (selection.provider !== "groq") {
+        throw new Error("Transcription requires Groq.");
+      }
+      return transcribe({
+        abortSignal: signal,
+        audio,
+        maxRetries: 0,
+        model: selection.client.transcription("whisper-large-v3-turbo"),
+        providerOptions: { groq: { responseFormat: "verbose_json" } },
+      });
+    },
+    { allowGemini: false }
+  );
 }
 
 export async function POST(request: Request) {

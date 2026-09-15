@@ -1,5 +1,12 @@
 # Local v1 build status
 
+## Shared AI key pool, 16 September 2026
+
+- Added encrypted student-contributed Groq and Gemini keys in Settings. Secrets use AES-256-GCM, are fingerprinted for duplicate prevention, and are never returned to the browser after submission.
+- Groq keys rotate across the app with Redis-backed cursors and cooldowns; the owner environment key remains a pool member. Text-only calls can fall back to Gemini, while search, research and transcription remain Groq-only.
+- Invalid stored keys disable automatically. Throttled Groq keys cool for 60 seconds and Gemini keys for about six hours. A process-local fallback keeps development usable without Redis.
+- Added migration `0009_flaky_stranger.sql`, provider validation, removal controls, privacy disclosure and unit coverage. This work remains local until the owner explicitly authorizes a push/deployment.
+
 ## Android startup fix, 15 September 2026
 
 - Reproduced the v1.0.3 APK's immediate startup crash on Android 10 (API 29) and Android 15 (API 35): `IllegalArgumentException: Component class ...ManageDataLauncherActivity does not exist in app.able.mobile`.

@@ -23,6 +23,13 @@ export default function Page() {
         <table className="min-w-[34rem]">
           <thead>
             <tr>
+              <td>AI provider API keys you choose to contribute</td>
+              <td>You, in Settings</td>
+              <td>
+                To add encrypted capacity to Able's shared pool for all students
+              </td>
+            </tr>
+            <tr>
               <th>Data</th>
               <th>Where it comes from</th>
               <th>Why we need it</th>
@@ -87,7 +94,8 @@ export default function Page() {
           recordings to produce answers.
         </li>
         <li>
-          <strong>Google</strong> handles sign-in.
+          <strong>Google</strong> handles sign-in and may process text-only AI
+          requests through Gemini when Groq capacity is unavailable.
         </li>
         <li>
           <strong>Vercel</strong> hosts the app.
@@ -104,6 +112,12 @@ export default function Page() {
       <p>
         Some of these providers process data outside India. We don't sell your
         data or use it for advertising.
+      </p>
+
+      <p>
+        A provider key contributed in Settings can serve requests from other
+        Able students. The secret is encrypted before storage, is never shown
+        again, and can be removed by its contributor at any time.
       </p>
 
       <h2>How long we keep it</h2>

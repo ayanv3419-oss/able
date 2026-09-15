@@ -5,7 +5,11 @@ import { insertUsageEvent } from "@/lib/db/usage-queries";
 import { getEntitlement } from "@/lib/entitlements";
 import { ChatbotError } from "@/lib/errors";
 import { costMicros } from "@/lib/metering";
-import { getChatModel } from "./providers";
+import {
+  getChatModelSelection,
+  markModelSelectionFailure,
+  markModelSelectionHealthy,
+} from "./providers";
 import { usageForBilling } from "./usage";
 
 /** Nested document calls use the same plan and contribute to its budget. */
@@ -44,11 +48,22 @@ export async function meteredArtifactOptions(userId: string) {
       userId,
     });
   }
+  const selection = await getChatModelSelection();
   return {
-    model: getChatModel(),
+    maxRetries: 0,
+    model: selection.model,
     onAbort: (event: { steps: Array<{ usage: LanguageModelUsage }> }) =>
       record(event.steps.map((step) => step.usage)),
-    onEnd: (event: { usage: LanguageModelUsage }) => record([event.usage]),
-    providerOptions: { groq: { reasoningEffort: entitlement.reasoningEffort } },
+    onEnd: async (event: { usage: LanguageModelUsage }) => {
+      await record([event.usage]);
+      await markModelSelectionHealthy(selection);
+    },
+    onError: async ({ error }: { error: unknown }) => {
+      await markModelSelectionFailure(selection, error);
+    },
+    providerOptions:
+      selection.provider === "groq"
+        ? { groq: { reasoningEffort: entitlement.reasoningEffort } }
+        : undefined,
   };
 }

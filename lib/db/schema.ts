@@ -44,6 +44,11 @@ export const usageKindEnum = pgEnum("usage_kind", [
   "title",
 ]);
 
+export const apiKeyProviderEnum = pgEnum("api_key_provider", [
+  "groq",
+  "gemini",
+]);
+
 export const user = pgTable(
   "User",
   {
@@ -67,6 +72,42 @@ export const user = pgTable(
 );
 
 export type User = InferSelectModel<typeof user>;
+
+export const apiKey = pgTable(
+  "ApiKey",
+  {
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    encrypted: text("encrypted").notNull(),
+    fingerprint: varchar("fingerprint", { length: 64 }).notNull(),
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    label: varchar("label", { length: 60 }),
+    lastFailureAt: timestamp("lastFailureAt"),
+    lastFailureKind: varchar("lastFailureKind", {
+      enum: ["invalid", "throttled"],
+      length: 10,
+    }),
+    preview: varchar("preview", { length: 32 }).notNull(),
+    provider: apiKeyProviderEnum("provider").notNull(),
+    status: varchar("status", {
+      enum: ["active", "disabled"],
+      length: 8,
+    })
+      .notNull()
+      .default("active"),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("ApiKey_fingerprint_unique").on(table.fingerprint),
+    index("ApiKey_provider_status_idx").on(table.provider, table.status),
+    index("ApiKey_userId_idx").on(table.userId),
+  ]
+);
+
+export type ApiKey = InferSelectModel<typeof apiKey>;
+export type NewApiKey = InferInsertModel<typeof apiKey>;
 
 export const contextFolder = pgTable(
   "ContextFolder",

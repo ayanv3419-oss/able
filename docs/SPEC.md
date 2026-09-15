@@ -11,8 +11,8 @@ Able is a paid, ChatGPT-style assistant for students. This file is the single so
 | Positioning | Pure ChatGPT clone. No study-specific features beyond ChatGPT's | OWNER |
 | Minimum age | None | OWNER |
 | Money | Paid only. No free plan, no trial | OWNER |
-| AI provider | Groq only. Model `openai/gpt-oss-120b` for answers | OWNER |
-| Capacity | Owner applies to Groq for higher limits. Launch waits for approval | OWNER |
+| AI provider | Shared Groq key pool for answers, with Gemini text-only fallback | OWNER update, 2026-09-16 |
+| Capacity | Owner base key plus encrypted student-contributed Groq/Gemini keys | OWNER update, 2026-09-16 |
 | Sign-in | Local v1 opens without sign-in (owner update, 2026-09-12); Google retained for connected mode | OWNER |
 | Payment | Owner's own UPI QR code. No payment company | OWNER |
 | Activation | Owner approves each payment by hand on an admin page. No alerts | OWNER |
@@ -58,7 +58,7 @@ These fill gaps the interview did not cover. Keep them unless the owner override
 
 From the template, unchanged unless listed: Next.js 16 App Router with `proxy.ts`, React 19, AI SDK 7 (`ai`, `@ai-sdk/react`), Auth.js v5 (`next-auth` beta), Drizzle ORM with the `postgres` driver, shadcn/ui with Tailwind 4, Biome through `ultracite`, Playwright e2e tests, pnpm through corepack.
 
-Added: `@ai-sdk/groq` for all model calls, `qrcode` for UPI QR images, `unpdf` for PDF text, `mammoth` for DOCX text, `vitest` for unit tests, `embedded-postgres` for a local database, `resend` for optional email.
+Added: `@ai-sdk/groq` and `@ai-sdk/google` for model calls, `qrcode` for UPI QR images, `unpdf` for PDF text, `mammoth` for DOCX text, `vitest` for unit tests, `embedded-postgres` for a local database, `resend` for optional email.
 
 Removed: the Vercel AI Gateway, and `@vercel/blob` for uploads.
 
@@ -82,6 +82,7 @@ New tables, all with uuid primary keys and `createdAt` timestamps:
 | `Memory` | `userId` → User, `content` text up to 500 chars, `projectId` → Project nullable (project memory; deleted with its project) |
 | `UserSettings` | `userId` primary key → User, `aboutMe` text up to 1,500 chars, `responseStyle` text up to 1,500 chars, `memoryEnabled` boolean default true, `profile` json (name, role, interests, learning and response preferences, reply language), `updatedAt` |
 | `Attachment` | `userId` → User, `chatId` nullable, `name`, `mediaType`, `text`, `charCount` int |
+| `ApiKey` | contributor `userId` → User (cascade delete), provider `groq`/`gemini`, optional label, AES-256-GCM encrypted secret, masked preview, unique SHA-256 fingerprint, active/disabled status and last failure |
 
 A subscription is current when its status is `active` and `startsAt <= now < endsAt`. "Expired" is derived from `endsAt`, never stored.
 
@@ -108,7 +109,7 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 
 ## 6. AI behaviour
 
-- Provider: `createGroq({ apiKey: process.env.GROQ_API_KEY })`. Chat model `openai/gpt-oss-120b` with `providerOptions.groq.reasoningEffort` set from the plan. Title model `openai/gpt-oss-20b`.
+- Provider: each request selects an active shared key. Groq keys rotate with a Redis cursor; `GROQ_API_KEY` is the synthetic `env` member. A 429 cools Groq for 60 seconds and Gemini for about six hours; a 401/403 disables a stored key. With Redis unavailable, one process uses random selection and in-memory cooldowns. Text-only work falls back to `gemini-2.5-flash` after Groq is unavailable. Web search, research and transcription stay Groq-only. Chat uses `openai/gpt-oss-120b`; titles use `openai/gpt-oss-20b`.
 - Test runs keep the template's mock models when `isTestEnvironment` is true. No test may call Groq.
 - System prompt: Able is a helpful, clear assistant like ChatGPT, family-safe for all ages. `lib/ai/personalization-context.ts` then assembles the student's context, applied in this priority order: system and safety rules, project instructions, custom instructions, profile and relevant memory, project context (name, relevant project memories, and relevant excerpts from the same project's other chats, capped at 12,000 characters), the conversation, and the current message. Only relevant memories are sent (at most 3/6/10 for Basic/Plus/Pro), never another project's memories or chats, and none when memory is off. The context is marked as data: it cannot override system rules, and Able must never invent profile facts, memories or history.
 - Reply language: Settings offers only English and Hindi, defaulting to English. Hindi means Roman Hindi (Hindi in English letters), including Context lessons. An explicit supported language request wins, then the saved preference. Older Hinglish preferences map to Hindi; removed Gujarati and automatic preferences fall back to English without losing other profile fields.
@@ -139,7 +140,7 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 
 **Projects.** The sidebar has one "Projects" entry that opens `/projects`. That page shows the student's projects as gray folders sorted A to Z, with only the name underneath; long names wrap to two lines, then end with "…". Five folders fit per row on a laptop and three on a phone. Each folder has a "…" menu with rename and delete, shown on hover and always on touch screens. A "New project" button sits at the top right. Chat rows get "Move to project" and "Remove from project". `/project/[id]` lists the project's chats, offers a new chat inside it, and edits its instructions. Creating a project beyond the plan's limit is blocked with an upgrade prompt.
 
-**Settings.** `/settings` holds the profile (name, role, interests, learning and response preferences, reply language), custom instructions, the memory switch and memory list with delete and delete-all, plan status with days and messages left, payment history, the refund request, sign out, and delete account. Deleting an account removes the student's chats, messages, projects, memories, settings, usage and attachments. It keeps payment records with the user link cleared.
+**Settings.** `/settings` holds the profile (name, role, interests, learning and response preferences, reply language), custom instructions, the memory switch and memory list with delete and delete-all, plan status with days and messages left, shared AI keys, payment history, the refund request, sign out, and delete account. A contributed key is validated with a tiny provider call, encrypted with AES-256-GCM, shown only as a masked preview, and may serve any Able student until its contributor removes it. Deleting an account removes the student's chats, messages, projects, memories, settings, usage, attachments and contributed keys. It keeps payment records with the user link cleared.
 
 **Files.** Uploads accept PDF, DOCX, TXT, MD and CSV up to 10 MB. The server extracts the text and stores it as an `Attachment`. Files over about 60,000 tokens, estimated as characters ÷ 4, are rejected with a message asking the student to split the file. The message carries a file part with the URL `attachment://<id>`. Before calling the model, the chat route swaps each such part for a text part with the stored text, after checking the attachment belongs to the student.
 
@@ -157,7 +158,8 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 |---|---|
 | `AUTH_SECRET` | Auth.js secret |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Google OAuth client |
-| `GROQ_API_KEY` | Groq |
+| `GROQ_API_KEY` | Base Groq key appended to the shared pool as `env` |
+| `ENCRYPTION_KEY` | Base64-encoded 32-byte AES key for contributed provider secrets |
 | `POSTGRES_URL` | Postgres; Able's own Supabase project in production (pooled connection string) |
 | `ADMIN_EMAILS` | Comma-separated admin Google emails |
 | `UPI_ID`, `UPI_PAYEE_NAME` | Payment QR details |
@@ -165,7 +167,7 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 | `CRON_SECRET` | Protects the reminder cron |
 | `NEXT_PUBLIC_APP_URL` | Absolute links in emails |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Optional email |
-| `REDIS_URL` | Optional, template rate limits and resumable streams |
+| `REDIS_URL` | Optional locally; production cursor/cooldown authority plus rate limits and resumable streams |
 
 ## 9. Local development and tests
 

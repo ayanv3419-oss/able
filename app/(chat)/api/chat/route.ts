@@ -20,9 +20,14 @@ import { createResumableStreamContext } from "resumable-stream";
 import { auth } from "@/app/(auth)/auth";
 import { generateChatTitle } from "@/lib/ai/generate-title";
 import { GroqSearchTracker } from "@/lib/ai/groq-search";
+import { KeyPoolUnavailableError } from "@/lib/ai/key-pool";
 import { buildPersonalizationContext } from "@/lib/ai/personalization-context";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
-import { getChatModel, groq } from "@/lib/ai/providers";
+import {
+  getChatModelSelection,
+  markModelSelectionFailure,
+  markModelSelectionHealthy,
+} from "@/lib/ai/providers";
 import {
   collectResearch,
   RESEARCH_LIMITS,
@@ -588,6 +593,13 @@ export async function POST(request: Request) {
           clearStillWaitingTimer();
         };
 
+        const modelSelection = await getChatModelSelection({
+          allowGemini: !(webSearch || deepResearch),
+        });
+        if (webSearch && !modelSelection.groqClient) {
+          throw new Error("Groq web search is unavailable.");
+        }
+
         const toolSet = {
           createDocument: createDocument({ dataStream, session }),
           editDocument: editDocument({ dataStream, session }),
@@ -606,7 +618,9 @@ export async function POST(request: Request) {
           // this build's `Tool`. The cast is safe: Groq's own SDK produces it.
           ...(webSearch && !deepResearch
             ? {
-                browser_search: groq.tools.browserSearch({}) as unknown as Tool,
+                browser_search: modelSelection.groqClient?.tools.browserSearch(
+                  {}
+                ) as unknown as Tool,
               }
             : {}),
         };
@@ -624,8 +638,9 @@ export async function POST(request: Request) {
               requestHints,
               studyMaterials,
             }) + (researchInstructions ? `\n\n${researchInstructions}` : ""),
+          maxRetries: 0,
           messages: modelMessages,
-          model: getChatModel(),
+          model: modelSelection.model,
           async onAbort(event) {
             await completeResearch(false);
             stopWaitingStatus();
@@ -669,16 +684,21 @@ export async function POST(request: Request) {
               )
             );
             await recordChatUsage({ billing, chatId: id, planId, userId });
+            await markModelSelectionHealthy(modelSelection);
           },
-          async onError() {
+          async onError({ error }) {
             await completeResearch(false);
             stopWaitingStatus();
+            await markModelSelectionFailure(modelSelection, error);
           },
-          providerOptions: {
-            groq: {
-              reasoningEffort: entitlement.reasoningEffort,
-            } satisfies GroqProviderOptions,
-          },
+          providerOptions:
+            modelSelection.provider === "groq"
+              ? {
+                  groq: {
+                    reasoningEffort: entitlement.reasoningEffort,
+                  } satisfies GroqProviderOptions,
+                }
+              : undefined,
           stopWhen: isStepCount(5),
           telemetry: {
             functionId: "stream-text",
@@ -762,7 +782,8 @@ export async function POST(request: Request) {
         if (deepResearch && modelSignal.aborted) {
           return "This research took too long. Try a narrower question.";
         }
-        return APICallError.isInstance(error) && error.statusCode === 429
+        return error instanceof KeyPoolUnavailableError ||
+          (APICallError.isInstance(error) && error.statusCode === 429)
           ? "Able is busy right now, try again in a minute."
           : "Able could not finish this response. Please try again.";
       },

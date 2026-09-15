@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { auth } from "@/app/(auth)/auth";
 import { SignOutForm } from "@/components/chat/sign-out-form";
+import { ApiKeyManager } from "@/components/settings/api-key-manager";
 import { DeleteAccountDialog } from "@/components/settings/delete-account-dialog";
 import { InstructionsForm } from "@/components/settings/instructions-form";
 import { MemoryList } from "@/components/settings/memory-list";
@@ -10,6 +11,7 @@ import { PlanStatusSection } from "@/components/settings/plan-status-section";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { gateStudent } from "@/lib/access";
+import { listUserApiKeys } from "@/lib/db/api-key-queries";
 import {
   getUserSettings,
   listMemories,
@@ -28,9 +30,10 @@ async function SettingsContent() {
 
   const userId = session.user.id;
   const entitlement = await gateStudent(userId, "settings");
-  const [settings, memories] = await Promise.all([
+  const [settings, memories, apiKeys] = await Promise.all([
     getUserSettings(userId),
     listMemories({ userId }),
+    listUserApiKeys(userId),
   ]);
 
   return (
@@ -60,6 +63,13 @@ async function SettingsContent() {
 
       <SettingsSection title="Plan">
         <PlanStatusSection entitlement={entitlement} />
+      </SettingsSection>
+
+      <SettingsSection
+        description="Contribute provider capacity without sharing the secret with other students."
+        title="Shared AI keys"
+      >
+        <ApiKeyManager apiKeys={apiKeys} />
       </SettingsSection>
 
       <SettingsSection title="Account">

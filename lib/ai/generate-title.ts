@@ -6,7 +6,7 @@ import { costMicros } from "@/lib/metering";
 import type { ChatMessage } from "@/lib/types";
 import { getTextFromMessage } from "@/lib/utils";
 import { titlePrompt } from "./prompts";
-import { getTitleModel } from "./providers";
+import { withTitleModelFailover } from "./providers";
 import { usageForBilling } from "./usage";
 
 function cleanTitle(text: string): string {
@@ -30,13 +30,19 @@ export async function generateChatTitle({
   chatId: string;
   message: ChatMessage;
 }): Promise<string> {
-  const { text, usage } = await generateText({
-    instructions: titlePrompt,
-    maxOutputTokens: 512,
-    model: getTitleModel(),
-    prompt: getTextFromMessage(message),
-    providerOptions: { groq: { reasoningEffort: "low" } },
-  });
+  const { text, usage } = await withTitleModelFailover((selection) =>
+    generateText({
+      instructions: titlePrompt,
+      maxOutputTokens: 512,
+      maxRetries: 0,
+      model: selection.model,
+      prompt: getTextFromMessage(message),
+      providerOptions:
+        selection.provider === "groq"
+          ? { groq: { reasoningEffort: "low" } }
+          : undefined,
+    })
+  );
 
   const title =
     cleanTitle(text).slice(0, 100) ||
