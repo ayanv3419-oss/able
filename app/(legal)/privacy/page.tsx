@@ -23,19 +23,19 @@ export default function Page() {
         <table className="min-w-[34rem]">
           <thead>
             <tr>
-              <td>AI provider API keys you choose to contribute</td>
-              <td>You, in Settings</td>
-              <td>
-                To add encrypted capacity to Able's shared pool for all students
-              </td>
-            </tr>
-            <tr>
               <th>Data</th>
               <th>Where it comes from</th>
               <th>Why we need it</th>
             </tr>
           </thead>
           <tbody>
+            <tr>
+              <td>AI provider API keys you choose to contribute</td>
+              <td>You, in Settings</td>
+              <td>
+                To add encrypted capacity to Able's shared pool for all students
+              </td>
+            </tr>
             <tr>
               <td>Your name, email address and profile picture</td>
               <td>Google, when you sign in</td>
