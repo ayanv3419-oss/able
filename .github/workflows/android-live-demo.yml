@@ -1,0 +1,43 @@
+name: Android live demo
+
+on:
+  push:
+    branches: [codex/android-live-demo]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  released-apk-demo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the public APK
+        run: |
+          mkdir -p dist/android-live-demo
+          curl --fail --location --retry 3 https://github.com/ayanv3419-oss/able/releases/latest/download/Able-Android.apk --output dist/android-live-demo/Able-Android.apk
+          echo "9062dce2af3f2574e719c3d8fb546473b61d245846ffc5fdefecd7203b84f1f6  dist/android-live-demo/Able-Android.apk" | sha256sum --check
+      - name: Enable emulator acceleration
+        run: sudo chmod a+rw /dev/kvm
+      - name: Record the released app against the live service
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          disable-animations: true
+          script: python3 native/android/live-demo.py
+      - name: Save video, screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: able-live-demo-android15
+          path: |
+            dist/android-live-demo/*.mp4
+            dist/android-live-demo/*.png
+            dist/android-live-demo/*.xml
+            dist/android-live-demo/*.json
+            dist/android-live-demo/*.log
