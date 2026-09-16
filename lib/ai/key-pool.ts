@@ -48,6 +48,7 @@ export class KeyPoolUnavailableError extends Error {
 }
 
 const memoryCooldowns = new Map<string, number>();
+const memoryCursors = new Map<ApiKeyProvider, number>();
 const createPoolRedisClient = () =>
   createClient({ url: process.env.REDIS_URL });
 type PoolRedisClient = ReturnType<typeof createPoolRedisClient>;
@@ -108,6 +109,17 @@ export function pickAvailableCredential<T extends { id: string }>(
   ];
 }
 
+/**
+ * Process-local round-robin used only when Redis is unavailable. The active
+ * credentials are still reloaded from Postgres for every request, so a key
+ * contributed in Settings joins production traffic without a redeploy.
+ */
+export function takeLocalPoolCursor(provider: ApiKeyProvider) {
+  const cursor = memoryCursors.get(provider) ?? 0;
+  memoryCursors.set(provider, cursor + 1);
+  return cursor;
+}
+
 async function pickCredential(
   provider: ApiKeyProvider,
   credentials: Credential[]
@@ -140,7 +152,7 @@ async function pickCredential(
   return pickAvailableCredential(
     credentials,
     cooling,
-    Math.floor(Math.random() * Math.max(credentials.length, 1))
+    takeLocalPoolCursor(provider)
   );
 }
 

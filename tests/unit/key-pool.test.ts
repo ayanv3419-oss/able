@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyProviderError,
   pickAvailableCredential,
+  takeLocalPoolCursor,
 } from "@/lib/ai/key-pool";
 
 const credentials = [{ id: "a" }, { id: "b" }, { id: "c" }];
@@ -17,6 +18,23 @@ describe("shared AI key pool", () => {
     expect(
       pickAvailableCredential(credentials, new Set(["a", "b", "c"]), 2)
     ).toBeNull();
+  });
+
+  it("keeps rotating when a newly uploaded key joins the live pool", () => {
+    const provider = "gemini";
+    const first = takeLocalPoolCursor(provider);
+    const second = takeLocalPoolCursor(provider);
+    const third = takeLocalPoolCursor(provider);
+
+    expect(
+      pickAvailableCredential(credentials.slice(0, 2), new Set(), first)
+    ).toMatchObject({ id: "a" });
+    expect(
+      pickAvailableCredential(credentials, new Set(), second)
+    ).toMatchObject({ id: "b" });
+    expect(
+      pickAvailableCredential(credentials, new Set(), third)
+    ).toMatchObject({ id: "c" });
   });
 
   it("classifies only invalid and throttled provider failures", () => {

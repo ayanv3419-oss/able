@@ -33,7 +33,7 @@ export function ApiKeyManager({ apiKeys }: { apiKeys: SafeApiKey[] }) {
     }
     if (state.success) {
       formRef.current?.reset();
-      toast.success("API key added to Able's shared pool");
+      toast.success("API key is active in Able's production pool");
     } else {
       toast.error(state.error);
     }
@@ -58,7 +58,8 @@ export function ApiKeyManager({ apiKeys }: { apiKeys: SafeApiKey[] }) {
     <div className="flex flex-col gap-5">
       <p className="text-muted-foreground text-sm">
         Keys added here power the shared Able service for every student. They
-        are encrypted before storage and are never shown again.
+        join production requests immediately, are encrypted before storage, and
+        are never shown again.
       </p>
 
       {apiKeys.length ? (
