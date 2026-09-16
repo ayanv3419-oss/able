@@ -125,6 +125,12 @@ test("saves settings and creates a project with persistent instructions", async 
   page,
 }) => {
   await page.goto("/settings");
+  await expect(
+    page.getByRole("textbox", { exact: true, name: "Name or nickname" })
+  ).toHaveAttribute("placeholder", "What should Able call you?");
+  await expect(
+    page.getByText(/Hindi replies use English letters \(Roman Hindi\)/)
+  ).not.toContainText("Ayan");
   await page
     .getByRole("textbox", {
       exact: true,

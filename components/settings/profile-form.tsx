@@ -12,11 +12,12 @@ import { PROFILE_FIELDS, type UserProfile } from "@/lib/personalization";
 type ProfileFieldKey = (typeof PROFILE_FIELDS)[number]["key"];
 
 const PLACEHOLDERS: Record<ProfileFieldKey, string> = {
-  displayName: "e.g. Ayan",
-  interests: "e.g. Web development, cricket, physics",
-  learningPreferences: "e.g. Practical examples before theory",
-  responsePreferences: "e.g. Clear, step-by-step explanations",
-  role: "e.g. First-year BCA student",
+  displayName: "What should Able call you?",
+  interests: "Topics, hobbies, or subjects you enjoy",
+  learningPreferences:
+    "Examples first, visual explanations, practice questions…",
+  responsePreferences: "Short answers, step-by-step help, simple language…",
+  role: "Student, teacher, developer, or another role",
 };
 
 const SHORT_FIELDS = new Set<ProfileFieldKey>(["displayName", "role"]);
@@ -95,8 +96,8 @@ export function ProfileForm({ profile }: { profile: UserProfile }) {
           ))}
         </select>
         <p className="text-muted-foreground text-sm">
-          Hindi replies use English letters, like “mera naam Ayan hai”. You can
-          also ask to switch between English and Roman Hindi in chat.
+          Hindi replies use English letters (Roman Hindi), like “main taiyar
+          hoon”. You can switch between English and Roman Hindi in chat.
         </p>
       </div>
 
