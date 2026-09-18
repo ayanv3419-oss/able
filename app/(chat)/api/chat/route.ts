@@ -18,6 +18,7 @@ import { checkBotId } from "botid/server";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth } from "@/app/(auth)/auth";
+import { shouldAutoEnableWebSearch } from "@/lib/ai/freshness";
 import { generateChatTitle } from "@/lib/ai/generate-title";
 import { GroqSearchTracker } from "@/lib/ai/groq-search";
 import { KeyPoolUnavailableError } from "@/lib/ai/key-pool";
@@ -467,6 +468,9 @@ export async function POST(request: Request) {
       : [];
 
     const resolvedMessages = await resolveAttachmentParts(uiMessages, userId);
+    const autoWebSearch = shouldAutoEnableWebSearch(
+      latestUserText(resolvedMessages)
+    );
     // An image attachment can only be answered by the local vision model.
     const needsVision = resolvedMessages.some((item) =>
       item.parts.some(
@@ -598,7 +602,11 @@ export async function POST(request: Request) {
 
         writeWaitingStatus(
           "waiting",
-          deepResearch ? "Writing your research report…" : "Waiting..."
+          deepResearch
+            ? "Writing your research report…"
+            : autoWebSearch && !webSearch
+              ? "Checking current sources…"
+              : "Thinking…"
         );
 
         stillWaitingTimer = setTimeout(() => {
@@ -620,8 +628,8 @@ export async function POST(request: Request) {
         };
 
         // Image messages force the local vision model; web search stays on Groq.
-        const wantsWebSearch = webSearch && !needsVision;
-        if (needsVision && !isVisionModelAvailable()) {
+        const wantsWebSearch = (webSearch || autoWebSearch) && !needsVision;
+        if (needsVision && !(await isVisionModelAvailable())) {
           throw new ChatbotError(
             "bad_request:api",
             "The local vision model is offline right now, so I can't read images. Try again once it's back, or send your question without the image."
@@ -674,6 +682,7 @@ export async function POST(request: Request) {
               personalization: personal.context,
               requestHints,
               studyMaterials,
+              webSearchEnabled: wantsWebSearch || deepResearch,
             }) + (researchInstructions ? `\n\n${researchInstructions}` : ""),
           maxRetries: 0,
           messages: modelMessages,

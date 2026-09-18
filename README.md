@@ -22,8 +22,8 @@ source of truth for every decision in this repository.
   use the existing database relationship and check ownership on the server.
 - **Markdown, code blocks and maths**, plus a collapsible view of the model's
   reasoning.
-- **Web search** as a composer toggle, so the model only gets the search tool
-  when you ask for it.
+- **Web search** as a composer toggle, plus automatic verification for clearly
+  current questions such as news, product specifications, launches and prices.
 - **File uploads**: PDF, DOCX, TXT, MD and CSV up to 10 MB, stored as extracted
   text.
 - **Voice input**: record up to 60 seconds and have it transcribed into the
