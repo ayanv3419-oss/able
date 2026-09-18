@@ -10,7 +10,6 @@ import {
   withAIKeyFailover,
 } from "./key-pool";
 import {
-  checkLocalHealth,
   isLocalAvailable,
   isLocalConfigured,
   localChatModel,
@@ -84,14 +83,14 @@ export async function getChatModelSelection({
   }
   // Images can only be read by the local vision model; never fall back to Groq.
   if (requireLocal) {
-    if (isLocalConfigured() && (await checkLocalHealth())) {
+    if (isLocalConfigured() && isLocalAvailable()) {
       return localSelection();
     }
     throw new LocalVisionUnavailableError();
   }
   // Prefer the local box when configured and healthy; otherwise the Groq/Gemini
   // key pool serves the request exactly as before.
-  if (allowLocal && isLocalAvailable() && (await checkLocalHealth())) {
+  if (allowLocal && isLocalAvailable()) {
     return localSelection();
   }
   return toModelSelection(await selectAIKey({ allowGemini }), "chat");
@@ -135,8 +134,6 @@ export async function markModelSelectionHealthy(selection: ModelSelection) {
 }
 
 /** Whether an image request can be served right now (local vision, healthy). */
-export async function isVisionModelAvailable(): Promise<boolean> {
-  return (
-    isLocalConfigured() && isLocalAvailable() && (await checkLocalHealth())
-  );
+export function isVisionModelAvailable(): boolean {
+  return isLocalConfigured() && isLocalAvailable();
 }

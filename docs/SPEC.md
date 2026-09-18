@@ -43,7 +43,7 @@ Every plan includes: streaming chat, stop, regenerate, edit-and-resend, chat his
 These fill gaps the interview did not cover. Keep them unless the owner overrides.
 
 - Daily limits reset at midnight Asia/Kolkata.
-- Web search is a toggle in the composer, like ChatGPT's search button. The server also enables search automatically for clearly freshness-sensitive requests (current news, live information, product specifications, launch dates, prices and availability) so Able does not guess changeable facts.
+- Web search is a toggle in the composer, like ChatGPT's search button. The model only gets the search tool when the toggle is on.
 - Answers are family-safe for every user, because there is no age limit.
 - Titles for new chats come from `openai/gpt-oss-20b` on Groq. Title cost is recorded but never charged to the student's daily budget.
 - Plan changes are not pro-rated. Renewing the same plan early extends the end date. Paying for a different plan starts it immediately and ends the old period.
@@ -113,7 +113,7 @@ All prices are US dollars per million tokens unless stated. Confirm them on Groq
 - Test runs keep the template's mock models when `isTestEnvironment` is true. No test may call Groq.
 - System prompt: Able is a helpful, clear assistant like ChatGPT, family-safe for all ages. `lib/ai/personalization-context.ts` then assembles the student's context, applied in this priority order: system and safety rules, project instructions, custom instructions, profile and relevant memory, project context (name, relevant project memories, and relevant excerpts from the same project's other chats, capped at 12,000 characters), the conversation, and the current message. Only relevant memories are sent (at most 3/6/10 for Basic/Plus/Pro), never another project's memories or chats, and none when memory is off. The context is marked as data: it cannot override system rules, and Able must never invent profile facts, memories or history.
 - Reply language: Settings offers only English and Hindi, defaulting to English. Hindi means Roman Hindi (Hindi in English letters), including Context lessons. An explicit supported language request wins, then the saved preference. Older Hinglish preferences map to Hindi; removed Gujarati and automatic preferences fall back to English without losing other profile fields.
-- Tools: the template's document tools (`createDocument`, `editDocument`, `updateDocument`, `requestSuggestions`) stay, with text, code and sheet kinds. `saveMemory({ content, scope })` saves an explicitly stated durable fact or preference, to the current project (`scope: "project"`) or across Able (`scope: "global"`), only when memory is on. `browser_search: groq.tools.browserSearch({})` is added when the student turns on Search or the server's conservative freshness check identifies a current/live fact that must be verified.
+- Tools: the template's document tools (`createDocument`, `editDocument`, `updateDocument`, `requestSuggestions`) stay, with text, code and sheet kinds. `saveMemory({ content, scope })` saves an explicitly stated durable fact or preference, to the current project (`scope: "project"`) or across Able (`scope: "global"`), only when memory is on. `browser_search: groq.tools.browserSearch({})` is added only when the request's `webSearch` flag is true.
 - Reasoning is streamed and shown in the existing collapsible reasoning component.
 
 ## 7. Flows
