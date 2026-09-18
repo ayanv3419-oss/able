@@ -25,7 +25,6 @@ import { buildPersonalizationContext } from "@/lib/ai/personalization-context";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import {
   getChatModelSelection,
-  isVisionModelAvailable,
   markModelSelectionFailure,
   markModelSelectionHealthy,
 } from "@/lib/ai/providers";
@@ -144,19 +143,6 @@ async function resolveAttachmentParts(
         );
       }
 
-      if (attachment.mediaType.startsWith("image/")) {
-        // Images are stored as a data URL in `text`; hand them to the vision
-        // model as a file part instead of inlining base64 as chat text.
-        return [
-          {
-            filename: attachment.name,
-            mediaType: attachment.mediaType,
-            type: "file" as const,
-            url: attachment.text,
-          },
-        ];
-      }
-
       return [
         {
           text: `Attached file "${attachment.name}": ${attachment.text}`,
@@ -224,7 +210,6 @@ function billingFromUsage(
 async function recordChatUsage({
   billing,
   chatId,
-  free = false,
   planId,
   userId,
 }: {
@@ -232,24 +217,19 @@ async function recordChatUsage({
   chatId: string;
   planId: PlanId;
   billing: StepBilling;
-  // Local-model answers run on the owner's own hardware, so they cost ₹0 and
-  // never draw down the student's daily budget.
-  free?: boolean;
 }) {
   try {
     await insertUsageEvent({
       audioSeconds: 0,
       cachedInputTokens: billing.cachedInputTokens,
       chatId,
-      costMicros: free
-        ? 0
-        : costMicros({
-            cachedInputTokens: billing.cachedInputTokens,
-            inputTokens: billing.inputTokens,
-            model: "chat",
-            outputTokens: billing.outputTokens,
-            webSearches: billing.searchCount,
-          }),
+      costMicros: costMicros({
+        cachedInputTokens: billing.cachedInputTokens,
+        inputTokens: billing.inputTokens,
+        model: "chat",
+        outputTokens: billing.outputTokens,
+        webSearches: billing.searchCount,
+      }),
       countsTowardLimit: true,
       inputTokens: billing.inputTokens,
       kind: "chat",
@@ -467,12 +447,6 @@ export async function POST(request: Request) {
       : [];
 
     const resolvedMessages = await resolveAttachmentParts(uiMessages, userId);
-    // An image attachment can only be answered by the local vision model.
-    const needsVision = resolvedMessages.some((item) =>
-      item.parts.some(
-        (part) => part.type === "file" && part.mediaType.startsWith("image/")
-      )
-    );
     const textLength = resolvedMessages.reduce(
       (total, item) =>
         total +
@@ -619,20 +593,10 @@ export async function POST(request: Request) {
           clearStillWaitingTimer();
         };
 
-        // Image messages force the local vision model; web search stays on Groq.
-        const wantsWebSearch = webSearch && !needsVision;
-        if (needsVision && !isVisionModelAvailable()) {
-          throw new ChatbotError(
-            "bad_request:api",
-            "The local vision model is offline right now, so I can't read images. Try again once it's back, or send your question without the image."
-          );
-        }
         const modelSelection = await getChatModelSelection({
-          allowGemini: !(wantsWebSearch || deepResearch) && !needsVision,
-          allowLocal: !(wantsWebSearch || deepResearch),
-          requireLocal: needsVision,
+          allowGemini: !(webSearch || deepResearch),
         });
-        if (wantsWebSearch && !modelSelection.groqClient) {
+        if (webSearch && !modelSelection.groqClient) {
           throw new Error("Groq web search is unavailable.");
         }
 
@@ -652,9 +616,9 @@ export async function POST(request: Request) {
           // @ai-sdk/groq pins an older @ai-sdk/provider-utils than this repo's
           // "ai", so its tool factory's structural type doesn't quite match
           // this build's `Tool`. The cast is safe: Groq's own SDK produces it.
-          ...(wantsWebSearch && !deepResearch && modelSelection.groqClient
+          ...(webSearch && !deepResearch
             ? {
-                browser_search: modelSelection.groqClient.tools.browserSearch(
+                browser_search: modelSelection.groqClient?.tools.browserSearch(
                   {}
                 ) as unknown as Tool,
               }
@@ -664,11 +628,10 @@ export async function POST(request: Request) {
         const searchTracker = new GroqSearchTracker();
         const result = streamText({
           abortSignal: modelSignal,
-          activeTools:
-            deepResearch || modelSelection.provider === "local"
-              ? []
-              : (Object.keys(toolSet) as (keyof typeof toolSet)[]),
-          include: { rawChunks: wantsWebSearch && !deepResearch },
+          activeTools: deepResearch
+            ? []
+            : (Object.keys(toolSet) as (keyof typeof toolSet)[]),
+          include: { rawChunks: webSearch && !deepResearch },
           instructions:
             systemPrompt({
               personalization: personal.context,
@@ -690,13 +653,7 @@ export async function POST(request: Request) {
               billing.searchCount,
               searchTracker.searchCount
             );
-            await recordChatUsage({
-              billing,
-              chatId: id,
-              free: modelSelection.provider === "local",
-              planId,
-              userId,
-            });
+            await recordChatUsage({ billing, chatId: id, planId, userId });
           },
           onChunk({ chunk }) {
             if (chunk.type === "start-step") {
@@ -726,13 +683,7 @@ export async function POST(request: Request) {
                 ).length
               )
             );
-            await recordChatUsage({
-              billing,
-              chatId: id,
-              free: modelSelection.provider === "local",
-              planId,
-              userId,
-            });
+            await recordChatUsage({ billing, chatId: id, planId, userId });
             await markModelSelectionHealthy(modelSelection);
           },
           async onError({ error }) {

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
-import { localVisionEnabled } from "@/lib/ai/local-model";
 import { uploadLimitError } from "@/lib/billing/upload-limit";
 import {
   countAttachmentsSince,
@@ -11,8 +10,6 @@ import { istDayStart } from "@/lib/metering";
 import { getPlan } from "@/lib/plans";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
-// Images are re-sent to the model on every turn as base64, so cap them tighter.
-const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
 /** SPEC §7: files over ~60,000 estimated tokens (chars ÷ 4) are rejected. */
 const MAX_ESTIMATED_TOKENS = 60_000;
 const CHARS_PER_TOKEN_ESTIMATE = 4;
@@ -92,49 +89,9 @@ export async function POST(request: Request) {
   }
 
   if (file.type.startsWith("image/")) {
-    if (!localVisionEnabled()) {
-      return errorResponse(
-        "Able can't read images with the current model. Upload a PDF, DOCX, TXT, MD, or CSV file instead."
-      );
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      return errorResponse("Image is larger than 6 MB.");
-    }
-    try {
-      const bytes = Buffer.from(await file.arrayBuffer());
-      // The vision model reads images as a data URL; store it in `text` so no
-      // schema change is needed and it flows through the normal attachment path.
-      const dataUrl = `data:${file.type};base64,${bytes.toString("base64")}`;
-      const created = await createAttachmentWithinLimit(
-        {
-          mediaType: file.type,
-          name: file.name,
-          text: dataUrl,
-          userId: session.user.id,
-        },
-        plan.dailyUploads
-      );
-      if (!created) {
-        return errorResponse(
-          uploadLimitError(plan, plan.dailyUploads ?? 0) ??
-            "Today's upload limit was reached.",
-          429
-        );
-      }
-      return NextResponse.json({
-        contentType: created.mediaType,
-        id: created.id,
-        name: created.name,
-        pathname: created.name,
-        url: `attachment://${created.id}`,
-      });
-    } catch (error) {
-      console.error("Image upload failed:", error);
-      return errorResponse(
-        "Able couldn't read that image. Please try again.",
-        500
-      );
-    }
+    return errorResponse(
+      "Able can't read images — Groq's model has no vision support. Upload a PDF, DOCX, TXT, MD, or CSV file instead."
+    );
   }
 
   if (file.size > MAX_FILE_BYTES) {

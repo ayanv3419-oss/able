@@ -13,18 +13,13 @@ export const PreviewAttachment = ({
   onRemove?: () => void;
 }) => {
   const { name, url, contentType } = attachment;
-  // Uploaded images live in the database behind an `attachment://` id, which
-  // next/image cannot load; only show a thumbnail for a directly-loadable URL.
-  const isRenderableImage =
-    Boolean(contentType?.startsWith("image")) &&
-    /^(https?:|data:|blob:)/.test(url);
 
   return (
     <div
       className="group relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-border/40 bg-muted"
       data-testid="input-attachment-preview"
     >
-      {isRenderableImage ? (
+      {contentType?.startsWith("image") ? (
         <Image
           alt={name ?? "attachment"}
           className="size-full object-cover"

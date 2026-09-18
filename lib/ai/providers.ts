@@ -9,13 +9,6 @@ import {
   selectAIKey,
   withAIKeyFailover,
 } from "./key-pool";
-import {
-  isLocalAvailable,
-  isLocalConfigured,
-  localChatModel,
-  markLocalFailure,
-  markLocalHealthy,
-} from "./local-model";
 
 // Tests must never reach Groq, so they run against the mock models.
 const mockProvider = useMockAI
@@ -35,7 +28,7 @@ export type ModelSelection = {
   groqClient?: GroqProvider;
   keyId: string;
   model: LanguageModel;
-  provider: "groq" | "gemini" | "local";
+  provider: "groq" | "gemini";
   raw?: SelectedAIKey;
 };
 
@@ -52,26 +45,10 @@ function toModelSelection(
   };
 }
 
-/** Thrown when a request needs vision but the local model is unavailable. */
-export class LocalVisionUnavailableError extends Error {
-  constructor() {
-    super("The local vision model is offline.");
-    this.name = "LocalVisionUnavailableError";
-  }
-}
-
-function localSelection(): ModelSelection {
-  return { keyId: "local", model: localChatModel(), provider: "local" };
-}
-
 export async function getChatModelSelection({
   allowGemini = true,
-  allowLocal = true,
-  requireLocal = false,
 }: {
   allowGemini?: boolean;
-  allowLocal?: boolean;
-  requireLocal?: boolean;
 } = {}): Promise<ModelSelection> {
   if (mockProvider) {
     return {
@@ -80,18 +57,6 @@ export async function getChatModelSelection({
       model: mockProvider.languageModel("chat-model"),
       provider: "groq",
     };
-  }
-  // Images can only be read by the local vision model; never fall back to Groq.
-  if (requireLocal) {
-    if (isLocalConfigured() && isLocalAvailable()) {
-      return localSelection();
-    }
-    throw new LocalVisionUnavailableError();
-  }
-  // Prefer the local box when configured and healthy; otherwise the Groq/Gemini
-  // key pool serves the request exactly as before.
-  if (allowLocal && isLocalAvailable()) {
-    return localSelection();
   }
   return toModelSelection(await selectAIKey({ allowGemini }), "chat");
 }
@@ -116,24 +81,11 @@ export function markModelSelectionFailure(
   selection: ModelSelection,
   error: unknown
 ) {
-  if (selection.provider === "local") {
-    markLocalFailure();
-    return true;
-  }
   return selection.raw ? markAIKeyFailure(selection.raw, error) : false;
 }
 
 export async function markModelSelectionHealthy(selection: ModelSelection) {
-  if (selection.provider === "local") {
-    markLocalHealthy();
-    return;
-  }
   if (selection.raw) {
     await markAIKeyHealthy(selection.raw);
   }
-}
-
-/** Whether an image request can be served right now (local vision, healthy). */
-export function isVisionModelAvailable(): boolean {
-  return isLocalConfigured() && isLocalAvailable();
 }

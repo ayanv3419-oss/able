@@ -439,11 +439,7 @@ function PureMultimodalInput({
       ) : null}
 
       <input
-        accept={`.pdf,.docx,.txt,.md,.csv${
-          process.env.NEXT_PUBLIC_LOCAL_VISION === "true"
-            ? ",image/png,image/jpeg,image/webp,image/gif,image/heic"
-            : ""
-        }`}
+        accept=".pdf,.docx,.txt,.md,.csv"
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
         multiple
         onChange={handleFileChange}
